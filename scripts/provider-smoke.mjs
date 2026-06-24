@@ -1,4 +1,8 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createPingBridgeRuntime } from "../packages/server/dist/index.js";
+
+loadDotEnv(resolve(".env"));
 
 if (process.env.PINGBRIDGE_RUN_PROVIDER_SMOKE !== "1") {
   console.log("provider smoke: skipped (set PINGBRIDGE_RUN_PROVIDER_SMOKE=1 to send real notifications)");
@@ -72,4 +76,38 @@ try {
   console.log(`provider smoke: ok (${response.deliveries.map((delivery) => delivery.channel).join(", ")})`);
 } finally {
   runtime.store.close();
+}
+
+function loadDotEnv(path) {
+  if (!existsSync(path)) {
+    return;
+  }
+
+  const lines = readFileSync(path, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+
+    const separator = trimmed.indexOf("=");
+    if (separator === -1) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, separator).trim();
+    const rawValue = trimmed.slice(separator + 1).trim();
+    if (!key || process.env[key] !== undefined) {
+      continue;
+    }
+
+    process.env[key] = unquote(rawValue);
+  }
+}
+
+function unquote(value) {
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    return value.slice(1, -1);
+  }
+  return value;
 }

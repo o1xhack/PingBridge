@@ -113,6 +113,8 @@ This catches packaging bugs that normal unit tests do not catch, such as missing
 PINGBRIDGE_RUN_PROVIDER_SMOKE=1 npm run test:providers
 ```
 
+The script also reads local `.env` automatically. Keep `.env` local; it is ignored by git.
+
 This sends real notifications if matching credentials are present:
 
 Telegram:
@@ -138,6 +140,8 @@ NTFY_TOKEN=...
 ```
 
 If `PINGBRIDGE_RUN_PROVIDER_SMOKE` is not `1`, this test prints a skip message and exits successfully to avoid accidental real notifications.
+
+See [Provider Smoke Setup](provider-smoke-setup.md) for how to obtain Bark and ntfy test values.
 
 ## 8. Docker Smoke Test
 

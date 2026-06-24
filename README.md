@@ -134,3 +134,4 @@ npm test
 - [MCP](docs/mcp.md)
 - [Security](docs/security.md)
 - [Testing](docs/testing.md)
+- [Provider Smoke Setup](docs/provider-smoke-setup.md)
