@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+data/
+pingbridge.config.yaml
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

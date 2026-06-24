@@ -1,0 +1,47 @@
+server:
+  host: 127.0.0.1
+  port: 8787
+  appToken: ${PINGBRIDGE_TOKEN}
+  databasePath: ./data/pingbridge.sqlite
+  dedupeWindowSeconds: 3600
+  deliveryRetries: 3
+  deliveryRetryDelayMs: 250
+  requestTimeoutMs: 10000
+
+channels:
+  ntfy_personal:
+    type: ntfy
+    server: ${NTFY_SERVER}
+    topic: ${NTFY_TOPIC}
+
+  # telegram_main:
+  #   type: telegram
+  #   botToken: ${TELEGRAM_BOT_TOKEN}
+  #   chatId: ${TELEGRAM_CHAT_ID}
+
+  # bark_iphone:
+  #   type: bark
+  #   endpoint: ${BARK_ENDPOINT}
+  #   deviceKey: ${BARK_DEVICE_KEY}
+
+targets:
+  me:
+    channels:
+      - ntfy_personal
+
+rules:
+  - match:
+      eventType: sync.failed
+    target: me
+    priority: high
+
+  - match:
+      eventType: auth.expired
+    target: me
+    priority: high
+
+  - match:
+      eventType: sync.completed
+      changed: true
+    target: me
+    priority: normal

@@ -1,0 +1,19 @@
+services:
+  pingbridge:
+    build: .
+    ports:
+      - "8787:8787"
+    environment:
+      PINGBRIDGE_CONFIG: /app/config/pingbridge.config.yaml
+      PINGBRIDGE_TOKEN: ${PINGBRIDGE_TOKEN}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      BARK_ENDPOINT: ${BARK_ENDPOINT:-https://api.day.app}
+      BARK_DEVICE_KEY: ${BARK_DEVICE_KEY}
+      NTFY_SERVER: ${NTFY_SERVER:-https://ntfy.sh}
+      NTFY_TOPIC: ${NTFY_TOPIC}
+      NTFY_TOKEN: ${NTFY_TOKEN}
+    volumes:
+      - ./pingbridge.config.yaml:/app/config/pingbridge.config.yaml:ro
+      - ./data:/data
+    restart: unless-stopped

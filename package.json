@@ -1,0 +1,45 @@
+{
+  "name": "pingbridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted notification gateway for routing app events to Telegram Bot, Bark, and ntfy.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "audit:ci": "npm audit --audit-level=moderate",
+    "build": "tsc -b packages/server packages/client-js packages/cli packages/mcp-server",
+    "clean": "rm -rf packages/*/dist packages/*/*.tsbuildinfo",
+    "dev:server": "npm --workspace @pingbridge/server run dev",
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
+    "lint": "eslint \"**/*.{js,mjs,cjs,ts,mts,cts}\"",
+    "start": "npm --workspace @pingbridge/server start",
+    "test": "vitest run",
+    "test:all": "npm run build && npm run typecheck && npm run lint && npm run format:check && npm run test:unit && npm run test:integration && npm run test:cli && npm run test:mcp && npm run test:package && npm run test:providers && npm run test:docker && npm run audit:ci",
+    "test:cli": "vitest run packages/cli/src/__tests__",
+    "test:docker": "node scripts/docker-smoke.mjs",
+    "test:integration": "vitest run packages/server/src/__tests__/api.test.ts",
+    "test:mcp": "vitest run packages/mcp-server/src/__tests__",
+    "test:package": "node scripts/package-smoke.mjs",
+    "test:providers": "node scripts/provider-smoke.mjs",
+    "test:unit": "vitest run packages/server/src/__tests__/config.test.ts packages/client-js/src/__tests__",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.5.0",
+    "prettier": "^3.8.4",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.62.0",
+    "vitest": "^3.2.0"
+  }
+}
