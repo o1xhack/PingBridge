@@ -4,6 +4,14 @@ PingBridge is a self-hosted notification gateway. Apps send standard events to P
 
 PingBridge is intended to run as a backend notification service. Third-party apps install the SDK or call the REST API; they do not store Bark, ntfy, or Telegram provider secrets.
 
+## Languages
+
+English is the default documentation language.
+
+- [English docs](docs/README.md)
+- [简体中文文档](docs/zh-CN/README.md)
+- [日本語ドキュメント](docs/ja/README.md)
+
 ## Read This First
 
 | Reader                 | Start Here                                                              | Goal                                                                              |
@@ -192,6 +200,7 @@ npm run dev:server
 npm run build
 npm run typecheck
 npm run lint
+npm run docs:check
 npm run test:all
 npm run test:external
 npm run test:all:real
@@ -202,6 +211,7 @@ npm test
 
 ## Docs
 
+- [Documentation Index](docs/README.md)
 - [Agent Guide](docs/agent-guide.md)
 - [Architecture](docs/architecture.md)
 - [REST API](docs/api.md)

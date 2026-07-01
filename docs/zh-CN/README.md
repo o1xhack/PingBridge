@@ -1,0 +1,42 @@
+# PingBridge 文档
+
+默认文档语言是英文。本目录提供简体中文版本，便于开发者和 Agent 快速接入。
+
+- [English](../README.md)
+- [日本語](../ja/README.md)
+
+## 先读这里
+
+| 读者                 | 入口                                                                         | 目标                                              |
+| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------- |
+| App / 插件开发者     | [接入其他项目](integrating-other-projects.md)                                | 把 PingBridge 通知接入到另一个项目。              |
+| Agent / Codex 自动化 | [Agent 指南](agent-guide.md)                                                 | 在不泄露 secret、不误发真实通知的前提下修改仓库。 |
+| REST API 用户        | [REST API](api.md)                                                           | 从任意语言调用 PingBridge。                       |
+| TypeScript 用户      | [TypeScript SDK](sdk.md)                                                     | 在应用代码里使用 `@pingbridge/client`。           |
+| 服务运维者           | [英文 Configuration](../configuration.md) 和 [英文 Security](../security.md) | 运行 PingBridge 并配置 provider。                 |
+| 贡献者               | [英文 Testing](../testing.md)                                                | 在发布前验证改动。                                |
+
+## 核心概念
+
+PingBridge 是后端通知服务，不是本地发送工具。
+
+第三方 App 或插件只向 PingBridge 发送标准事件。PingBridge 服务端负责 provider secret、路由、去重、重试、delivery log 和 provider-specific API。
+
+标准接入测试顺序是：
+
+1. `health()` 检查服务是否可达。
+2. `preview(...)` 检查鉴权、payload、target、routing、priority 和 dedupe，但不发送通知。
+3. `notify(...)` 在路由允许时发送真实通知。
+
+## 当前 MVP 支持
+
+- Telegram Bot
+- Bark
+- ntfy
+- REST API
+- TypeScript client
+- CLI
+- MCP server
+- YAML 配置 channels、targets 和 rules
+- SQLite event / delivery logs
+- 基础 retry 和 dedupe

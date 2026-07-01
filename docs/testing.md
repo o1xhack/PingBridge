@@ -14,14 +14,15 @@ This runs:
 2. TypeScript typecheck
 3. ESLint
 4. Prettier check
-5. unit tests
-6. HTTP integration tests
-7. CLI tests
-8. MCP handler tests
-9. npm package smoke test
-10. external consumer smoke test
-11. Docker smoke test
-12. moderate-or-higher npm audit gate
+5. documentation locale coverage check
+6. unit tests
+7. HTTP integration tests
+8. CLI tests
+9. MCP handler tests
+10. npm package smoke test
+11. external consumer smoke test
+12. Docker smoke test
+13. moderate-or-higher npm audit gate
 
 The default gate does not send real Bark, ntfy, or Telegram notifications. Docker smoke is environment-aware and skips safely when Docker is unavailable.
 
@@ -37,9 +38,10 @@ npm run test:all:real
 npm run typecheck
 npm run lint
 npm run format:check
+npm run docs:check
 ```
 
-These catch TypeScript errors, obvious code defects, and formatting drift.
+These catch TypeScript errors, obvious code defects, formatting drift, and missing localized documentation entrypoints.
 
 ## 2. Unit Tests
 

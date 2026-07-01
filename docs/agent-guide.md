@@ -36,14 +36,15 @@ provider smoke credentials
 
 Read these files before making behavior or documentation changes:
 
-| Task                        | Required Docs                                                               |
-| --------------------------- | --------------------------------------------------------------------------- |
-| Add another app integration | `docs/integrating-other-projects.md`, `docs/sdk.md`, `docs/api.md`          |
-| Change REST behavior        | `docs/api.md`, `docs/sdk.md`, `docs/testing.md`                             |
-| Change SDK behavior         | `docs/sdk.md`, `docs/integrating-other-projects.md`, client tests           |
-| Change providers or secrets | `docs/configuration.md`, `docs/security.md`, `docs/provider-smoke-setup.md` |
-| Change release gate         | `docs/testing.md`                                                           |
-| Change architecture         | `docs/architecture.md`                                                      |
+| Task                        | Required Docs                                                                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| Add another app integration | `docs/integrating-other-projects.md`, `docs/sdk.md`, `docs/api.md`                             |
+| Change REST behavior        | `docs/api.md`, `docs/sdk.md`, `docs/testing.md`                                                |
+| Change SDK behavior         | `docs/sdk.md`, `docs/integrating-other-projects.md`, client tests                              |
+| Change providers or secrets | `docs/configuration.md`, `docs/security.md`, `docs/provider-smoke-setup.md`                    |
+| Change localized docs       | `docs/README.md`, `docs/zh-CN/README.md`, `docs/ja/README.md`, `scripts/check-doc-locales.mjs` |
+| Change release gate         | `docs/testing.md`                                                                              |
+| Change architecture         | `docs/architecture.md`                                                                         |
 
 ## Safe Test Rules
 
@@ -81,12 +82,14 @@ Before changing code:
 - Update every affected doc. For example, a new SDK method usually affects `docs/sdk.md`, `docs/api.md`, `docs/integrating-other-projects.md`, and tests.
 - Keep examples copy-pasteable with placeholder secrets only.
 - Keep `preview` documented as non-sending.
+- Keep English as the default docs path and update `docs/zh-CN` and `docs/ja` when core integration docs change.
 - Keep default tests quiet.
 
 Before committing:
 
 ```bash
 npm run format:write
+npm run docs:check
 npm run test:all
 git status --short
 ```
