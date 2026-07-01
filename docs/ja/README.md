@@ -7,14 +7,18 @@ PingBridge の既定ドキュメント言語は英語です。このディレク
 
 ## 最初に読むもの
 
-| 読者                      | 入口                                                                         | 目的                                                          |
-| ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| アプリ / プラグイン開発者 | [他プロジェクトへの組み込み](integrating-other-projects.md)                  | PingBridge 通知を別プロジェクトへ追加する。                   |
-| Agent / Codex 自動化      | [Agent ガイド](agent-guide.md)                                               | secret を漏らさず、予期しない実通知も送らずに安全に変更する。 |
-| REST API ユーザー         | [REST API](api.md)                                                           | 任意の言語から PingBridge を呼び出す。                        |
-| TypeScript ユーザー       | [TypeScript SDK](sdk.md)                                                     | アプリコードから `@pingbridge/client` を使う。                |
-| サービス運用者            | [英語 Configuration](../configuration.md) と [英語 Security](../security.md) | PingBridge を起動し provider を設定する。                     |
-| コントリビューター        | [英語 Testing](../testing.md)                                                | リリース前に変更を検証する。                                  |
+| 読者                                | 入口                                                                       | 目的                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| アプリ / プラグイン開発者           | [他プロジェクトへの組み込み](integrating-other-projects.md)                | PingBridge 通知を別プロジェクトへ追加する。                   |
+| Agent / Codex 自動化                | [Agent ガイド](agent-guide.md)                                             | secret を漏らさず、予期しない実通知も送らずに安全に変更する。 |
+| REST API ユーザー                   | [REST API](api.md)                                                         | 任意の言語から PingBridge を呼び出す。                        |
+| TypeScript ユーザー                 | [TypeScript SDK](sdk.md)                                                   | アプリコードから `@pingbridge/client` を使う。                |
+| サービス運用者                      | [設定](configuration.md) と [セキュリティ](security.md)                    | PingBridge を起動し provider を設定する。                     |
+| コントリビューター                  | [テスト](testing.md)                                                       | リリース前に変更を検証する。                                  |
+| Provider テスター                   | [Provider Smoke Setup](provider-smoke-setup.md)                            | ローカルで実 Bark、ntfy、Telegram smoke test を設定する。     |
+| プロダクト / アーキテクチャレビュー | [アーキテクチャ](architecture.md) と [プロダクト調査](product-research.md) | MVP 境界と参考プロジェクトを理解する。                        |
+| MCP ユーザー                        | [MCP](mcp.md)                                                              | Agent tool 環境から PingBridge を呼び出す。                   |
+| Obsidian 連携                       | [Obsidian 連携](obsidian-integration.md)                                   | Obsidian plugin または sync project に組み込む。              |
 
 ## コアコンセプト
 

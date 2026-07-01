@@ -13,7 +13,21 @@ const requiredEnglishDocs = [
   "docs/sdk.md"
 ];
 
-const requiredLocalizedDocs = ["README.md", "agent-guide.md", "api.md", "integrating-other-projects.md", "sdk.md"];
+const requiredLocalizedDocs = [
+  "README.md",
+  "agent-guide.md",
+  "api.md",
+  "architecture.md",
+  "configuration.md",
+  "integrating-other-projects.md",
+  "mcp.md",
+  "obsidian-integration.md",
+  "product-research.md",
+  "provider-smoke-setup.md",
+  "sdk.md",
+  "security.md",
+  "testing.md"
+];
 
 const locales = ["zh-CN", "ja"];
 

@@ -36,13 +36,12 @@ The normal integration test order is:
 
 The English docs are the source of truth and default reading path.
 
-The core integration docs are also maintained in Simplified Chinese and Japanese:
+The main docs are also maintained in Simplified Chinese and Japanese:
 
-- overview
-- agent guide
-- REST API
-- TypeScript SDK
+- overview and agent guide
+- REST API and TypeScript SDK
 - third-party integration guide
+- architecture, configuration, security, testing, MCP, provider smoke, Obsidian integration, and product research notes
 
 Run this check after changing documentation navigation or localized docs:
 
