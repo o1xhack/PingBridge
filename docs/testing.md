@@ -19,11 +19,16 @@ This runs:
 7. CLI tests
 8. MCP handler tests
 9. npm package smoke test
-10. provider smoke test
-11. Docker smoke test
-12. moderate-or-higher npm audit gate
+10. Docker smoke test
+11. moderate-or-higher npm audit gate
 
-Provider and Docker smoke tests are environment-aware. They skip safely when the required external dependency is not available.
+The default gate does not send real Bark, ntfy, or Telegram notifications. Docker smoke is environment-aware and skips safely when Docker is unavailable.
+
+To include real provider notifications, run:
+
+```bash
+npm run test:all:real
+```
 
 ## 1. Static Checks
 
@@ -141,6 +146,8 @@ NTFY_TOKEN=...
 
 If `PINGBRIDGE_RUN_PROVIDER_SMOKE` is not `1`, this test prints a skip message and exits successfully to avoid accidental real notifications.
 
+This test is intentionally not part of `npm run test:all`, because it sends real notifications. Use it before release, after provider changes, or when explicitly checking end-to-end delivery.
+
 See [Provider Smoke Setup](provider-smoke-setup.md) for how to obtain Bark and ntfy test values.
 
 ## 8. Docker Smoke Test
@@ -176,5 +183,5 @@ For a release candidate with provider credentials and Docker available:
 ```bash
 PINGBRIDGE_RUN_PROVIDER_SMOKE=1 \
 PINGBRIDGE_REQUIRE_DOCKER=1 \
-npm run test:all
+npm run test:all:real
 ```

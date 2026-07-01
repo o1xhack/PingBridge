@@ -16,6 +16,18 @@ npm run test:providers
 
 If `.env` contains `PINGBRIDGE_RUN_PROVIDER_SMOKE=1`, that command sends real notifications to the configured Bark and ntfy channels.
 
+Do not use real provider smoke for every routine edit. The default test gate is intentionally quiet:
+
+```bash
+npm run test:all
+```
+
+Use real notifications only when explicitly validating providers or release readiness:
+
+```bash
+npm run test:all:real
+```
+
 ## Local `.env`
 
 Copy the example file:
@@ -141,10 +153,10 @@ After both channels are configured once, future changes should reuse the same `.
 After `.env` is filled:
 
 ```bash
-npm run test:all
+npm run test:all:real
 ```
 
-This will run the real provider smoke test because `.env` contains `PINGBRIDGE_RUN_PROVIDER_SMOKE=1`.
+This runs the normal test gate and then the real provider smoke test. It will send real notifications if `.env` contains `PINGBRIDGE_RUN_PROVIDER_SMOKE=1`.
 
 Docker smoke still requires Docker CLI and a running Docker daemon. Without Docker, it prints a skip message unless `PINGBRIDGE_REQUIRE_DOCKER=1` is set.
 
