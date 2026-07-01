@@ -4,6 +4,18 @@ This guide explains how to set up real local smoke tests for Bark and ntfy witho
 
 `scripts/provider-smoke.mjs` automatically reads `.env` from the repository root. `.env` is ignored by git.
 
+## Canonical Local Smoke Channels
+
+For this project, keep one stable local `.env` and reuse the same Bark device key and ntfy topic for future development and testing. Do not rotate them unless they are compromised or intentionally retired.
+
+This gives every future change the same real provider gate:
+
+```bash
+npm run test:providers
+```
+
+If `.env` contains `PINGBRIDGE_RUN_PROVIDER_SMOKE=1`, that command sends real notifications to the configured Bark and ntfy channels.
+
 ## Local `.env`
 
 Copy the example file:
@@ -29,9 +41,21 @@ BARK_DEVICE_KEY=replace-with-your-bark-device-key
 
 Do not commit `.env`.
 
+The repository `.gitignore` also ignores `.env.*`, `*.local`, `*.secret`, `secrets/`, local PingBridge config files, SQLite data, and provider-smoke local files. Keep real provider keys and real ntfy topics in those ignored local files only.
+
 ## ntfy
 
-ntfy does not require approval for a basic public-topic test. Topics are created when you subscribe or publish. Topic names act like shared secrets, so use a long random value.
+ntfy does not require approval for a basic public-topic test. Topics are created when you subscribe or publish.
+
+For public `ntfy.sh` topics, the topic name is effectively a shared secret. Anyone who knows the topic can subscribe and, unless the topic is otherwise protected, publish to it. Do not commit or document the real long-lived smoke-test topic.
+
+For docs, examples, demos, and screenshots, use a placeholder or a one-time throwaway topic:
+
+```text
+pingbridge-test-<random-uuid>
+```
+
+For long-lived project testing, use the stable random topic in local `.env`.
 
 1. Install/open the ntfy app or use the web app.
 2. Subscribe to a long random topic, for example:
@@ -109,6 +133,8 @@ If both Bark and ntfy are configured, the expected result includes both channels
 ```text
 provider smoke: ok (bark_smoke, ntfy_smoke)
 ```
+
+After both channels are configured once, future changes should reuse the same `.env` so test notifications keep arriving in the same Bark and ntfy places.
 
 ## Full Real Local Gate
 

@@ -1,9 +1,20 @@
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Local secrets and provider smoke credentials.
 .env
+.env.*
+!.env.example
+*.local
+*.secret
+secrets/
+
+# Local runtime config and data.
 data/
 pingbridge.config.yaml
+pingbridge.config.local.yaml
+provider-smoke.local.*
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
