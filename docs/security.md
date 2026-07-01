@@ -14,13 +14,18 @@ If `server.appToken` is empty, API endpoints are unauthenticated. Do this only f
 
 ## Secret Placement
 
-Third-party apps should not store provider secrets:
+PingBridge supports two secret-placement models.
 
-- no Telegram bot token in Obsidian plugins
-- no Bark device key in shell scripts
-- no ntfy private token in automation repos
+For service-managed YAML targets, store provider values in the PingBridge server environment and reference them from YAML via `${NAME}`.
 
-Store these values in the PingBridge server environment and reference them from YAML via `${NAME}`.
+For portable app/plugin integrations, users may enter Bark, Telegram, or ntfy settings into the app. The app may store those values in the user's local settings or secret store, but must treat them as secrets:
+
+- do not commit them
+- do not print them in logs
+- do not include them in `message`, `items`, `metadata`, titles, or errors
+- do not send them to unrelated services
+
+PingBridge uses portable provider config for the current request. It stores the normalized event and delivery result, but not the portable Bark device key, Telegram bot token, ntfy token, or ntfy topic.
 
 ## ntfy Topics
 

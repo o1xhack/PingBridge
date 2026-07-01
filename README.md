@@ -1,8 +1,8 @@
 # PingBridge
 
-PingBridge is a self-hosted notification gateway. Apps send standard events to PingBridge; PingBridge handles routing, formatting, dedupe, retry, delivery logs, and provider-specific push APIs.
+PingBridge is a self-hosted notification gateway. Apps pass one normalized message and user-owned channel config to PingBridge; PingBridge handles routing, formatting, dedupe, retry, delivery logs, and provider-specific push APIs.
 
-PingBridge is intended to run as a backend notification service. Third-party apps install the SDK or call the REST API; they do not store Bark, ntfy, or Telegram provider secrets.
+PingBridge is intended to run as a Backend Notification as a Service. Third-party apps install the SDK or call the REST API; they do not implement Bark, ntfy, or Telegram provider adapters.
 
 ## Languages
 
@@ -32,6 +32,7 @@ The 1.0 MVP supports:
 - TypeScript client
 - CLI
 - MCP server
+- portable user config for app/plugin integrations
 - YAML configuration for channels, targets, and rules
 - SQLite event and delivery logs
 - Basic retry and dedupe
@@ -40,11 +41,14 @@ PingBridge is not a full BaaS, hosted notification cloud, workflow engine, Web U
 
 ## Core Flow
 
-1. A PingBridge service operator configures provider secrets once on the server.
-2. An app or plugin stores only `endpoint`, `appToken`, and `target`.
-3. The app calls `health()` to check connectivity.
-4. The app calls `preview(...)` to verify auth, target, routing, priority, and dedupe without sending a notification.
-5. The app calls `notify(...)` when it wants PingBridge to deliver a real notification.
+1. An app or plugin stores PingBridge endpoint/token plus the user's selected Bark, Telegram, or ntfy settings.
+2. The app sends that portable config to PingBridge.
+3. The app calls `health()` to check service connectivity.
+4. The app calls `checkConfig(...)` to validate user channel config without sending.
+5. The app calls `previewMessage(...)` to verify routing, priority, and dedupe without sending.
+6. The app calls `sendMessage(...)` when it wants PingBridge to deliver a real notification.
+
+For CLIs, MCP automation, and trusted backend jobs, PingBridge also supports service-managed YAML `channels` and `targets` through `preview(...)` and `notify(...)`.
 
 ## Quick Start
 
@@ -106,7 +110,7 @@ npm pack --workspace @pingbridge/client --pack-destination /tmp
 Then in the app/plugin project:
 
 ```bash
-npm install /tmp/pingbridge-client-0.1.0.tgz
+npm install /tmp/pingbridge-client-1.0.0.tgz
 ```
 
 Use it from app code:
@@ -121,33 +125,55 @@ const ping = new PingBridgeClient({
 
 await ping.health();
 
-await ping.preview({
-  source: "my-app",
-  eventType: "task.completed",
-  target: "me",
-  title: "Preview only",
-  message: "This checks routing without sending.",
-  changed: true
-});
+const config = {
+  app: {
+    id: "my-plugin",
+    name: "My Plugin",
+    defaultGroup: "personal"
+  },
+  channels: {
+    phone: {
+      type: "bark" as const,
+      endpoint: "https://api.day.app",
+      deviceKey: userSettings.barkDeviceKey
+    }
+  },
+  groups: {
+    personal: {
+      label: "My Plugin",
+      channels: ["phone"]
+    }
+  },
+  defaults: {
+    group: "personal",
+    changed: true
+  }
+};
 
-await ping.notify({
-  source: "my-app",
-  eventType: "task.completed",
-  target: "me",
-  title: "Task completed",
-  message: "This sends a real notification.",
-  changed: true
-});
+await ping.checkConfig(config);
+
+const input = {
+  config,
+  message: {
+    eventType: "task.completed",
+    title: "Task completed",
+    message: "This sends through PingBridge, not app-side Bark code.",
+    dedupeKey: "my-plugin:task.completed"
+  }
+};
+
+await ping.previewMessage(input);
+await ping.sendMessage(input);
 ```
 
 See [Integrating Other Projects](docs/integrating-other-projects.md).
 
 ## Configuration Model
 
-PingBridge has three main concepts:
+For service-managed YAML mode, PingBridge has three main concepts:
 
 - `channels`: provider-specific destinations such as a Telegram chat, Bark device, or ntfy topic.
-- `targets`: stable recipient groups that third-party apps can reference.
+- `targets`: stable recipient groups that CLIs, MCP tools, or trusted backend jobs can reference.
 - `rules`: routing policy for event types and changed/error behavior.
 
 Example:

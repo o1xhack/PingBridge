@@ -1,42 +1,64 @@
-# プロダクト調査ノート
+# Product Research Notes
 
-この MVP は GitHub で現在も活発に保守されている notification / BaaS-style projects と照合しました。
+PingBridge は actively maintained notification infrastructure と self-hosted notification projects と比較しました。
 
 ## Reviewed Projects
 
-| Project | GitHub                                | 借りるべきパターン                                                                                                           |
-| ------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Novu    | https://github.com/novuhq/novu        | notification infrastructure が backend API と SDKs を公開し、アプリは各 provider を直接組み込まず workflow を trigger する。 |
-| ntfy    | https://github.com/binwiederhier/ntfy | シンプルな HTTP publish/subscribe API。topic は publish/subscribe で使え、curl でテストしやすい。                            |
-| Gotify  | https://github.com/gotify/server      | self-hosted push service。server-side app tokens とシンプルな message API。                                                  |
-| Apprise | https://github.com/caronc/apprise     | provider abstraction layer。多数の通知先を 1 つの sending interface に正規化する。                                           |
+| Project  | Reference                                                                       | Borrowed Pattern                                                                                  |
+| -------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Novu     | https://docs.novu.co/platform/what-is-novu and https://github.com/novuhq/novu   | API-first notification infrastructure。App は unified backend API を trigger する。               |
+| Knock    | https://docs.knock.app/send-notifications/triggering-workflows/api              | workflow trigger API が high-level trigger payload を受け取り cross-channel delivery を実行する。 |
+| SuprSend | https://docs.suprsend.com/docs/user-preferences and https://github.com/SuprSend | user preferences と channel choices を first-class concept として扱う。                           |
+| Gotify   | https://github.com/gotify                                                       | self-hosted push server、simple API、application identity。                                       |
+| ntfy     | https://github.com/binwiederhier/ntfy                                           | simple HTTP publish/subscribe model。end user が設定しやすい。                                    |
+| Apprise  | https://github.com/caronc/apprise                                               | provider abstraction layer。many destinations を one sending interface に正規化する。             |
 
-2026-06-30 に GitHub metadata を確認した時点で、4 repo すべてが 2026 年 6 月に最近 push され、利用も多い状態でした。Novu は約 39k stars、ntfy は約 31k、Apprise は約 16k、Gotify は約 15k。
+## Product Conclusions
 
-## PingBridge MVP への影響
+共通パターンは「各 App が provider APIs を直接呼ぶ」ことではありません。価値は unified notification boundary です。
 
-PingBridge は backend notification service として扱うべきであり、local-only sender ではありません。
+1. App は backend notification API を trigger する。
+2. users/operators が notification preferences と channels を定義する。
+3. notification service が provider adaptation、formatting、routing、retry、observability を担当する。
+4. App developer は Bark、Telegram、ntfy、email、SMS、push logic を繰り返し実装しない。
 
-最小利用フロー：
+## PingBridge 1.0 Implications
 
-1. PingBridge service operator が provider secrets を一度だけ設定する。
-2. App developer が PingBridge SDK をインストールする。
-3. App は `endpoint`、`appToken`、`target` だけを保存する。
-4. App は実通知を送らずに `health` と `preview` を実行できる。
-5. App は `notify` で user-visible delivery を実行する。
+PingBridge は developer-owned apps/plugins 向け Backend Notification as a Service として扱います。
 
-そのため SDK は次を公開します。
+required flow:
+
+1. App developer が `@pingbridge/client` または REST を使う。
+2. App が PingBridge endpoint/token と user notification channel settings を公開する。
+3. user が Bark、Telegram、ntfy、または複数 channel を選び、自分の provider values を入力する。
+4. App が portable config を PingBridge に渡す。
+5. PingBridge が `checkConfig` / `/v1/configs/health` で config を検証する。
+6. PingBridge が `previewMessage` / `/v1/messages/preview` で 1 message を preview する。
+7. PingBridge が `sendMessage` / `/v1/messages` で送信する。
+
+SDK methods:
 
 - `health()`
-- `preview(...)`
-- `notify(...)`
-- `changed(...)`
-- `failed(...)`
-- `authExpired(...)`
+- `checkConfig(...)`
+- `previewMessage(...)`
+- `sendMessage(...)`
+- legacy/static-target helpers: `preview(...)`, `notify(...)`, `changed(...)`, `failed(...)`, `authExpired(...)`
 
-repository には次も含まれます。
+Tests cover:
 
-- `@pingbridge/client` の publishable package metadata
+- portable config HTTP integration
+- provider formatting unit tests
 - package smoke tests
 - external consumer smoke tests
-- 既定 quiet gate から分離された provider smoke tests
+- default quiet gate と real provider smoke の分離
+
+## Deliberate 1.0 Limits
+
+- visual workflow builder
+- hosted SaaS accounts
+- multi-tenant dashboard
+- preference-center UI components
+- queue/worker architecture
+- email/SMS/in-app inbox providers
+
+  1.0 scope は portable notification config contract、Bark/Telegram Bot/ntfy adapters、app name/icon/group customization、config health、message preview、message send、TypeScript SDK です。

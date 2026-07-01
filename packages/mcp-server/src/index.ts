@@ -26,7 +26,7 @@ export async function startMcpServer(env: NodeJS.ProcessEnv = process.env): Prom
   const client = new PingBridgeClient({ endpoint, token });
   const handlers = createToolHandlers(client);
 
-  const server = new McpServer({ name: "pingbridge", version: "0.1.0" });
+  const server = new McpServer({ name: "pingbridge", version: "1.0.0" });
 
   server.registerTool(
     "send_notification",

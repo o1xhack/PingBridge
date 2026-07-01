@@ -4,14 +4,14 @@ This guide is for coding agents and automation agents that need to understand or
 
 ## Product Contract
 
-PingBridge is a backend notification service. It is not a local-only sender.
+PingBridge is a Backend Notification as a Service. It is not a local-only sender.
 
-Third-party apps send standard events to PingBridge. PingBridge owns provider secrets, routing, dedupe, retries, delivery logs, and provider-specific HTTP APIs.
+Third-party apps pass portable user notification config and messages to PingBridge. PingBridge owns provider adaptation, routing, dedupe, retries, delivery logs, and provider-specific HTTP APIs.
 
 The standard integration flow is:
 
 ```text
-app/plugin -> @pingbridge/client or REST API -> PingBridge service -> Telegram/Bark/ntfy
+app/plugin settings -> portable config -> @pingbridge/client or REST API -> PingBridge service -> Telegram/Bark/ntfy
 ```
 
 Third-party apps should store only:
@@ -19,18 +19,21 @@ Third-party apps should store only:
 ```text
 endpoint
 appToken
-target
+user-selected Bark/Telegram/ntfy config
+app name/icon/group defaults
 ```
 
-They should not store:
+They should not implement or duplicate:
 
 ```text
-Telegram bot token
-Bark device key
-ntfy topic/token
+Telegram HTTP adapter
+Bark HTTP adapter
+ntfy HTTP adapter
 PingBridge SQLite data
 provider smoke credentials
 ```
+
+Portable provider config is allowed in app settings when it belongs to the end user. It must not be committed, logged, or placed in event metadata.
 
 ## Documentation Map
 
@@ -69,10 +72,11 @@ Real provider values live in local `.env`. Do not print them in logs, commit the
 When adding PingBridge to another project, use this order:
 
 1. `health()` checks service reachability.
-2. `preview(...)` checks payload, auth, target, routing, priority, and dedupe without sending.
-3. `notify(...)` sends a real notification.
+2. `checkConfig(...)` checks portable user channel config without sending.
+3. `previewMessage(...)` checks one message without sending.
+4. `sendMessage(...)` sends a real notification.
 
-Do not use `notify(...)` as the first connection test. That creates noisy real pushes and makes failure diagnosis worse.
+Do not use `sendMessage(...)` as the first connection test. That creates noisy real pushes and makes failure diagnosis worse.
 
 ## Agent Checklist
 
@@ -81,7 +85,7 @@ Before changing code:
 - Confirm whether the change affects server API, SDK API, CLI, MCP, docs, or provider behavior.
 - Update every affected doc. For example, a new SDK method usually affects `docs/sdk.md`, `docs/api.md`, `docs/integrating-other-projects.md`, and tests.
 - Keep examples copy-pasteable with placeholder secrets only.
-- Keep `preview` documented as non-sending.
+- Keep `checkConfig` and `previewMessage` documented as non-sending.
 - Keep English as the default docs path and update `docs/zh-CN` and `docs/ja` when core integration docs change.
 - Keep default tests quiet.
 

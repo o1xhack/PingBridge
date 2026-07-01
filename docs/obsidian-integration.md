@@ -1,6 +1,6 @@
 # Obsidian Integration
 
-Obsidian plugins should depend only on the PingBridge TypeScript client. Bark, ntfy, and Telegram secrets stay on the PingBridge server.
+Obsidian plugins should depend on the PingBridge TypeScript client and pass portable user config to the PingBridge service. The plugin should not implement Bark, ntfy, or Telegram HTTP adapters.
 
 ## Settings
 
@@ -9,17 +9,25 @@ interface PingBridgeSettings {
   enabled: boolean;
   endpoint: string;
   appToken: string;
-  target: string;
+  appName: string;
+  appIconUrl?: string;
   notifyOnChanged: boolean;
   notifyOnFailure: boolean;
   notifyOnAuthExpired: boolean;
+  channels: {
+    bark?: { enabled: boolean; endpoint?: string; deviceKey: string };
+    telegram?: { enabled: boolean; botToken: string; chatId: string };
+    ntfy?: { enabled: boolean; server?: string; topic: string; token?: string };
+  };
 }
 ```
+
+Store these values only in the user's local plugin settings or secret store. Do not write them into event metadata or logs.
 
 ## Client Setup
 
 ```ts
-import { PingBridgeClient } from "@pingbridge/client";
+import { PingBridgeClient, type PortableNotificationConfig } from "@pingbridge/client";
 
 const ping = new PingBridgeClient({
   endpoint: settings.endpoint,
@@ -27,20 +35,78 @@ const ping = new PingBridgeClient({
 });
 ```
 
+## Build Config
+
+```ts
+function buildConfig(settings: PingBridgeSettings): PortableNotificationConfig {
+  const channels: PortableNotificationConfig["channels"] = {};
+
+  if (settings.channels.bark?.enabled) {
+    channels.bark = {
+      type: "bark",
+      endpoint: settings.channels.bark.endpoint,
+      deviceKey: settings.channels.bark.deviceKey
+    };
+  }
+
+  if (settings.channels.telegram?.enabled) {
+    channels.telegram = {
+      type: "telegram",
+      botToken: settings.channels.telegram.botToken,
+      chatId: settings.channels.telegram.chatId
+    };
+  }
+
+  if (settings.channels.ntfy?.enabled) {
+    channels.ntfy = {
+      type: "ntfy",
+      server: settings.channels.ntfy.server,
+      topic: settings.channels.ntfy.topic,
+      token: settings.channels.ntfy.token
+    };
+  }
+
+  return {
+    app: {
+      id: "obsidian-sync-trakt",
+      name: settings.appName || "Obsidian Sync Trakt",
+      iconUrl: settings.appIconUrl,
+      defaultGroup: "personal"
+    },
+    channels,
+    groups: {
+      personal: {
+        label: "Obsidian",
+        iconUrl: settings.appIconUrl,
+        channels: Object.keys(channels)
+      }
+    },
+    defaults: {
+      group: "personal",
+      changed: true
+    }
+  };
+}
+```
+
 ## Connection Test
 
-Use `health` and `preview` from the plugin settings screen before sending real notifications:
+Use `health`, `checkConfig`, and `previewMessage` from the plugin settings screen before sending real notifications:
 
 ```ts
 await ping.health();
 
-await ping.preview({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.completed",
-  target: settings.target,
-  title: "PingBridge preview",
-  message: "This validates routing without sending a notification.",
-  changed: true
+const config = buildConfig(settings);
+await ping.checkConfig(config);
+
+await ping.previewMessage({
+  config,
+  message: {
+    eventType: "sync.completed",
+    title: "PingBridge preview",
+    message: "This validates config and routing without sending.",
+    changed: true
+  }
 });
 ```
 
@@ -48,29 +114,35 @@ await ping.preview({
 
 ```ts
 if (settings.enabled && settings.notifyOnChanged && changed) {
-  await ping.changed({
-    source: "obsidian-sync-trakt",
-    eventType: "sync.completed",
-    target: settings.target,
-    title: "Trakt sync completed",
-    message: "Wrote 3 Daily Notes.",
-    dedupeKey: `obsidian-sync-trakt:${date}:daily-notes`
+  await ping.sendMessage({
+    config: buildConfig(settings),
+    message: {
+      eventType: "sync.completed",
+      title: "Trakt sync completed",
+      message: "Wrote 3 Daily Notes.",
+      dedupeKey: `obsidian-sync-trakt:${date}:daily-notes`,
+      presentation: {
+        url: "obsidian://open?vault=Main",
+        tags: ["obsidian", "trakt"]
+      }
+    }
   });
 }
 ```
 
 ## Sync Completed Without Changes
 
-You can skip sending this event, or send it with `changed: false` if you want PingBridge to keep an audit record without pushing:
+You can skip this event, or send it with `changed: false` if you want PingBridge to keep an audit record without pushing:
 
 ```ts
-await ping.notify({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.completed",
-  target: settings.target,
-  title: "Trakt sync completed",
-  message: "No changes.",
-  changed: false
+await ping.sendMessage({
+  config: buildConfig(settings),
+  message: {
+    eventType: "sync.completed",
+    title: "Trakt sync completed",
+    message: "No changes.",
+    changed: false
+  }
 });
 ```
 
@@ -78,13 +150,16 @@ await ping.notify({
 
 ```ts
 if (settings.enabled && settings.notifyOnFailure) {
-  await ping.failed({
-    source: "obsidian-sync-trakt",
-    eventType: "sync.failed",
-    target: settings.target,
-    title: "Trakt sync failed",
-    message: error instanceof Error ? error.message : String(error),
-    dedupeKey: `obsidian-sync-trakt:${date}:failure`
+  await ping.sendMessage({
+    config: buildConfig(settings),
+    message: {
+      eventType: "sync.failed",
+      title: "Trakt sync failed",
+      message: error instanceof Error ? error.message : String(error),
+      severity: "error",
+      changed: true,
+      dedupeKey: `obsidian-sync-trakt:${date}:failure`
+    }
   });
 }
 ```
@@ -93,11 +168,15 @@ if (settings.enabled && settings.notifyOnFailure) {
 
 ```ts
 if (settings.enabled && settings.notifyOnAuthExpired) {
-  await ping.authExpired({
-    source: "obsidian-sync-trakt",
-    target: settings.target,
-    title: "Trakt authorization expired",
-    message: "Reconnect Trakt before the next sync."
+  await ping.sendMessage({
+    config: buildConfig(settings),
+    message: {
+      eventType: "auth.expired",
+      title: "Trakt authorization expired",
+      message: "Reconnect Trakt before the next sync.",
+      severity: "error",
+      changed: true
+    }
   });
 }
 ```

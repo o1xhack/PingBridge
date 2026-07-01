@@ -55,9 +55,15 @@ npm run test:mcp
 当前覆盖：
 
 - config environment expansion 和 validation
+- Bark / ntfy provider presentation formatting
 - TypeScript client request shape 和 error handling
+- portable config SDK request shape
 - bearer-token auth
 - changed event delivery
+- portable config health
+- portable message preview / send
+- portable provider config 会传给服务端 adapter
+- portable provider secrets 不会写入 event payload
 - unchanged success ignored
 - failure delivery
 - priority、dedupe、retry
@@ -81,7 +87,17 @@ npm run test:package
 npm run test:external
 ```
 
-它会创建临时外部项目，安装 packed `@pingbridge/client` tarball，启动本地 PingBridge HTTP server，然后从外部项目调用 `health`、`preview`、`notify`。
+它会创建临时外部项目，安装 packed `@pingbridge/client` tarball，启动本地 PingBridge HTTP server，然后从外部项目调用 `health`、`checkConfig`、`previewMessage`、`sendMessage`。
+
+该测试验证目标 Backend Notification as a Service 接入路径：
+
+- App 安装 SDK
+- App 保存 endpoint/token 和用户自己的 provider config
+- App 检查 service health
+- App 检查 portable config health
+- App preview 单条 portable message，不发送
+- App send 单条 portable message
+- service 使用 portable channel config 通过 provider layer 发送
 
 provider 是 fake，所以不会发送 Bark/ntfy/Telegram。
 

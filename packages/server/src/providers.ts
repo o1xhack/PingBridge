@@ -42,10 +42,10 @@ export class BarkProvider implements NotificationProvider {
   async send(channel: ChannelConfig, event: NormalizedEvent, context: ProviderSendContext): Promise<DeliveryResult> {
     const bark = channel as BarkChannelConfig;
     const endpoint = trimTrailingSlash(bark.endpoint ?? "https://api.day.app");
-    const priorityQuery = mapBarkPriority(context.priority);
+    const query = buildBarkQuery(event, context.priority);
     const url = `${endpoint}/${encodeURIComponent(bark.deviceKey)}/${encodeURIComponent(event.title)}/${encodeURIComponent(
       event.message
-    )}${priorityQuery}`;
+    )}${query}`;
     const response = await fetchWithTimeout(url, { method: "POST" }, context.timeoutMs);
 
     if (!response.ok) {
@@ -65,6 +65,12 @@ export class NtfyProvider implements NotificationProvider {
       Priority: mapNtfyPriority(context.priority),
       Tags: mapTags(event)
     };
+    if (event.presentation?.url) {
+      headers.Click = event.presentation.url;
+    }
+    if (event.presentation?.iconUrl) {
+      headers.Icon = event.presentation.iconUrl;
+    }
     if (ntfy.token) {
       headers.Authorization = `Bearer ${ntfy.token}`;
     }
@@ -97,7 +103,12 @@ export function createDefaultProviders(): ProviderRegistry {
 }
 
 export function formatMessage(event: NormalizedEvent): string {
-  const detailLines = [`Source: ${event.source}`, `Event: ${event.eventType}`];
+  const detailLines = [
+    ...(event.presentation?.appName ? [`App: ${event.presentation.appName}`] : []),
+    `Source: ${event.source}`,
+    `Event: ${event.eventType}`,
+    ...(event.presentation?.url ? [`URL: ${event.presentation.url}`] : [])
+  ];
   return `${event.title}\n\n${event.message}\n\n${detailLines.join("\n")}`;
 }
 
@@ -120,14 +131,26 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-function mapBarkPriority(priority: Priority): string {
+function buildBarkQuery(event: NormalizedEvent, priority: Priority): string {
+  const params = new URLSearchParams();
   if (priority === "high") {
-    return "?level=critical";
+    params.set("level", "critical");
+  } else if (priority === "low") {
+    params.set("level", "passive");
   }
-  if (priority === "low") {
-    return "?level=passive";
+
+  if (event.presentation?.iconUrl) {
+    params.set("icon", event.presentation.iconUrl);
   }
-  return "";
+  if (event.presentation?.group) {
+    params.set("group", event.presentation.group);
+  }
+  if (event.presentation?.url) {
+    params.set("url", event.presentation.url);
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
 function mapNtfyPriority(priority: Priority): string {
@@ -141,6 +164,9 @@ function mapNtfyPriority(priority: Priority): string {
 }
 
 function mapTags(event: NormalizedEvent): string {
+  if (event.presentation?.tags?.length) {
+    return event.presentation.tags.join(",");
+  }
   if (event.severity === "error") {
     return "warning";
   }

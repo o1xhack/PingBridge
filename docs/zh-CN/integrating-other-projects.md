@@ -1,18 +1,21 @@
 # 接入其他项目
 
-PingBridge 是后端通知服务。第三方 App 不应该直接集成 Bark、ntfy 或 Telegram，而应该向 PingBridge 发送标准事件。
+PingBridge 是给 App 和插件使用的 Backend Notification as a Service。
+
+App 不应该自己实现 Bark、Telegram 或 ntfy adapter。App 收集用户的通知设置，把 portable config 传给 PingBridge，然后由 PingBridge 统一处理 provider API、格式化、routing、retry、dedupe 和 delivery logs。
 
 ## 接入后能实现什么
 
 App 接入后可以：
 
-- 检查 PingBridge 是否可达
-- 预览 routing 且不发送通知
-- 发送成功、changed、failure、auth-expired 通知
-- 复用服务端 provider routing
-- 避免在 App 里保存 provider secrets
+- 让每个用户选择 Bark、Telegram、ntfy 或多个渠道
+- 为通知设置 app name、icon、group label、click URL 和 tags
+- 先做 config health check，不发送推送
+- 预览单条消息，不发送推送
+- 用一个 SDK 方法发送真实通知
+- 避免每个插件重复写 provider adapter
 
-App 不会获得 hosted cloud account、user management 或 provider-specific SDK。
+App 仍然负责 settings UI 和本地存储。PingBridge 负责 provider delivery。
 
 ## 当前 MVP 安装路径
 
@@ -35,46 +38,91 @@ npm pack --workspace @pingbridge/client --pack-destination /tmp
 然后在另一个项目里：
 
 ```bash
-npm install /tmp/pingbridge-client-0.1.0.tgz
+npm install /tmp/pingbridge-client-1.0.0.tgz
 ```
 
-import path 保持一致：
+## App Settings
 
-```ts
-import { PingBridgeClient } from "@pingbridge/client";
-```
-
-## App 配置
-
-App 或插件只保存 PingBridge service settings：
+推荐 settings shape：
 
 ```ts
 interface PingBridgeSettings {
   enabled: boolean;
   endpoint: string;
   appToken: string;
-  target: string;
+  appName: string;
+  appIconUrl?: string;
+  defaultGroup: string;
+  channels: {
+    bark?: { enabled: boolean; endpoint?: string; deviceKey: string };
+    telegram?: { enabled: boolean; botToken: string; chatId: string };
+    ntfy?: { enabled: boolean; server?: string; topic: string; token?: string };
+  };
 }
 ```
 
-不要保存 Bark device key、ntfy topic、Telegram bot token。
+provider values 只应保存在用户本地 settings 或 secret store。不要提交、打印、写入 event metadata，或发送到不相关的服务。
 
-推荐设置项：
+## 生成 Portable Config
 
-| Setting   | 说明                                                   |
-| --------- | ------------------------------------------------------ |
-| Enabled   | 是否启用 PingBridge 通知。                             |
-| Endpoint  | PingBridge service URL，例如 `http://127.0.0.1:8787`。 |
-| App token | PingBridge 服务运维者创建的 bearer token。             |
-| Target    | 稳定收件人组，例如 `me` 或 `ops`。                     |
+```ts
+import type { PortableNotificationConfig } from "@pingbridge/client";
+
+function buildPingBridgeConfig(settings: PingBridgeSettings): PortableNotificationConfig {
+  const channels: PortableNotificationConfig["channels"] = {};
+
+  if (settings.channels.bark?.enabled) {
+    channels.bark_phone = {
+      type: "bark",
+      endpoint: settings.channels.bark.endpoint,
+      deviceKey: settings.channels.bark.deviceKey
+    };
+  }
+
+  if (settings.channels.telegram?.enabled) {
+    channels.telegram_chat = {
+      type: "telegram",
+      botToken: settings.channels.telegram.botToken,
+      chatId: settings.channels.telegram.chatId
+    };
+  }
+
+  if (settings.channels.ntfy?.enabled) {
+    channels.ntfy_topic = {
+      type: "ntfy",
+      server: settings.channels.ntfy.server,
+      topic: settings.channels.ntfy.topic,
+      token: settings.channels.ntfy.token
+    };
+  }
+
+  return {
+    app: {
+      id: "obsidian-sync-trakt",
+      name: settings.appName || "Obsidian Sync Trakt",
+      iconUrl: settings.appIconUrl,
+      defaultGroup: settings.defaultGroup || "personal"
+    },
+    channels,
+    groups: {
+      personal: {
+        label: "Obsidian",
+        iconUrl: settings.appIconUrl,
+        channels: Object.keys(channels)
+      }
+    },
+    defaults: { group: "personal", changed: true }
+  };
+}
+```
+
+如果 `channels` 为空，应先在设置页提示用户启用至少一个渠道。
 
 ## 三步接入测试
 
-第三方项目按这个顺序测试。
+### 1. Service Health
 
-### 1. Health Check
-
-检查服务是否可达，不发送通知。
+只检查 PingBridge 服务是否可达，不验证 provider config，也不发送通知。
 
 ```ts
 const ping = new PingBridgeClient({
@@ -85,102 +133,73 @@ const ping = new PingBridgeClient({
 await ping.health();
 ```
 
-CLI：
+### 2. Config Health
 
-```bash
-pingbridge health --endpoint "$PINGBRIDGE_ENDPOINT" --token "$PINGBRIDGE_TOKEN"
-```
-
-如果失败，优先检查 endpoint、服务是否运行、网络边界。
-
-### 2. Preview
-
-检查 payload shape、token、target、routing、priority 和 dedupe state，不发送通知。
+检查 portable config shape、group、channel reference，以及当前 PingBridge runtime 是否支持这些 channel type。不发送通知。
 
 ```ts
-const preview = await ping.preview({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.completed",
-  target: settings.target,
-  title: "Trakt sync completed",
-  message: "Wrote 3 Daily Notes.",
-  changed: true,
-  dedupeKey: "obsidian-sync-trakt:daily-notes"
-});
+const config = buildPingBridgeConfig(settings);
+const result = await ping.checkConfig(config);
 
-console.log(preview.channels);
+if (result.status === "warning") {
+  console.warn(result.warnings.join("\n"));
+}
 ```
 
-如果失败，先修 token、target、payload shape 或 service config。不要直接进入真实通知测试。
-
-如果 `preview.notify` 是 `false`，说明事件合法，但当前 routing 不会发送。很多 unchanged success events 都应该是这样。
-
-### 3. Notify
-
-在 routing 允许时发送真实通知。
+### 3. Preview Then Send
 
 ```ts
-await ping.notify({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.completed",
-  target: settings.target,
-  title: "Trakt sync completed",
-  message: "Wrote 3 Daily Notes.",
-  changed: true,
-  dedupeKey: "obsidian-sync-trakt:daily-notes"
-});
+const input = {
+  config,
+  message: {
+    eventType: "sync.completed",
+    title: "Trakt sync completed",
+    message: "Wrote 3 Daily Notes.",
+    dedupeKey: "obsidian-sync-trakt:daily-notes",
+    presentation: {
+      url: "obsidian://open?vault=Main",
+      tags: ["obsidian", "sync"]
+    }
+  }
+};
+
+const preview = await ping.previewMessage(input);
+
+if (preview.notify) {
+  await ping.sendMessage(input);
+}
 ```
 
-只有在 `health` 和 `preview` 都通过后再调用。
+`previewMessage(...)` 不写 SQLite，不发送 provider notification。
+
+`sendMessage(...)` 是真实通知发送。
 
 ## Failure 和 Auth Expired
 
 ```ts
-await ping.failed({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.failed",
-  target: settings.target,
-  title: "Trakt sync failed",
-  message: "OAuth invalid_grant"
-});
-
-await ping.authExpired({
-  source: "obsidian-sync-trakt",
-  target: settings.target,
-  title: "Trakt authorization expired",
-  message: "Reconnect Trakt before the next sync."
-});
-```
-
-## 最小 Helper
-
-```ts
-import { PingBridgeClient, PingBridgeClientError, type NotifyInput } from "@pingbridge/client";
-
-export async function sendPingBridgeEvent(
-  settings: PingBridgeSettings,
-  event: Omit<NotifyInput, "target">
-): Promise<void> {
-  if (!settings.enabled) return;
-
-  const ping = new PingBridgeClient({
-    endpoint: settings.endpoint,
-    token: settings.appToken
-  });
-
-  try {
-    await ping.notify({ ...event, target: settings.target });
-  } catch (error) {
-    if (error instanceof PingBridgeClientError) {
-      console.warn(`PingBridge failed: ${error.status} ${error.code}: ${error.message}`);
-      return;
-    }
-    throw error;
+await ping.sendMessage({
+  config,
+  message: {
+    eventType: "sync.failed",
+    title: "Trakt sync failed",
+    message: "OAuth invalid_grant",
+    severity: "error",
+    changed: true,
+    dedupeKey: "obsidian-sync-trakt:failure"
   }
-}
-```
+});
 
-设置页的 “Test connection” 应使用 `ping.health()` 和 `ping.preview(...)`。不要用 `notify(...)` 做第一次测试，因为它会发送真实推送。
+await ping.sendMessage({
+  config,
+  message: {
+    eventType: "auth.expired",
+    title: "Trakt authorization expired",
+    message: "Reconnect Trakt before the next sync.",
+    severity: "error",
+    changed: true
+  }
+});
+```
 
 ## Event 命名
 
@@ -195,14 +214,12 @@ export async function sendPingBridgeEvent(
 | background job 完成 | `job.completed`                     |
 | background job 失败 | `job.failed`                        |
 
-可能 retry 或重复出现的事件应使用 `dedupeKey`。好的 key 通常包含 source、event type、日期或对象 id。
+可能 retry 或重复出现的事件应使用 `dedupeKey`。好的 key 通常包含 app id、event type、日期或对象 id。
 
 ## 外部 Consumer Smoke Test
-
-PingBridge 包含 quiet external consumer test：
 
 ```bash
 npm run test:external
 ```
 
-它会创建临时外部项目、安装 packed `@pingbridge/client` tarball、启动本地 PingBridge HTTP server，并调用 `health`、`preview`、`notify`。该测试使用 fake provider，不会发送 Bark/ntfy/Telegram。
+该测试会创建临时外部项目、安装 packed `@pingbridge/client` tarball、启动本地 PingBridge HTTP server，调用 `health`、`checkConfig`、`previewMessage`、`sendMessage`，并验证 preview 不发送而 send 会调用 fake provider。

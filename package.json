@@ -1,6 +1,6 @@
 {
   "name": "pingbridge",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Self-hosted notification gateway for routing app events to Telegram Bot, Bark, and ntfy.",
   "license": "MIT",
@@ -31,7 +31,7 @@
     "test:mcp": "vitest run packages/mcp-server/src/__tests__",
     "test:package": "node scripts/package-smoke.mjs",
     "test:providers": "node scripts/provider-smoke.mjs",
-    "test:unit": "vitest run packages/server/src/__tests__/config.test.ts packages/client-js/src/__tests__",
+    "test:unit": "vitest run packages/server/src/__tests__/config.test.ts packages/server/src/__tests__/providers.test.ts packages/client-js/src/__tests__",
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty false"
   },

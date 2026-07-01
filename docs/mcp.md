@@ -2,6 +2,8 @@
 
 PingBridge includes an MCP stdio server for Codex, Claude Code, and other MCP clients.
 
+The MCP server currently uses the service-managed event flow. It is intended for trusted automation where PingBridge YAML already defines channels and targets. App/plugin integrations should use `@pingbridge/client` portable config methods instead.
+
 Build the project first:
 
 ```bash

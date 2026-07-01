@@ -4,14 +4,14 @@
 
 ## プロダクト契約
 
-PingBridge はバックエンド通知サービスです。ローカル送信ツールではありません。
+PingBridge は Backend Notification as a Service です。ローカル送信ツールではありません。
 
-サードパーティアプリは標準イベントを PingBridge に送ります。PingBridge は provider secrets、routing、dedupe、retry、delivery logs、provider-specific HTTP APIs を所有します。
+サードパーティアプリは portable user notification config と message を PingBridge に渡します。PingBridge は provider adaptation、routing、dedupe、retry、delivery logs、provider-specific HTTP APIs を担当します。
 
 標準フロー：
 
 ```text
-app/plugin -> @pingbridge/client または REST API -> PingBridge service -> Telegram/Bark/ntfy
+app/plugin settings -> portable config -> @pingbridge/client または REST API -> PingBridge service -> Telegram/Bark/ntfy
 ```
 
 サードパーティアプリが保存するもの：
@@ -19,18 +19,21 @@ app/plugin -> @pingbridge/client または REST API -> PingBridge service -> Tel
 ```text
 endpoint
 appToken
-target
+user-selected Bark/Telegram/ntfy config
+app name/icon/group defaults
 ```
 
-保存してはいけないもの：
+実装または重複させてはいけないもの：
 
 ```text
-Telegram bot token
-Bark device key
-ntfy topic/token
+Telegram HTTP adapter
+Bark HTTP adapter
+ntfy HTTP adapter
 PingBridge SQLite data
 provider smoke credentials
 ```
+
+portable provider config は user local app settings に保存できます。ただし commit、log 出力、event metadata への保存は禁止です。
 
 ## ドキュメントマップ
 
@@ -69,10 +72,11 @@ npm run test:all:real
 別プロジェクトに PingBridge を組み込むときは、この順序を使います。
 
 1. `health()` でサービス到達性を確認する。
-2. `preview(...)` で payload、auth、target、routing、priority、dedupe を確認する。通知は送らない。
-3. `notify(...)` で実通知を送る。
+2. `checkConfig(...)` で portable user channel config を確認する。通知は送らない。
+3. `previewMessage(...)` で 1 件の message を確認する。通知は送らない。
+4. `sendMessage(...)` で実通知を送る。
 
-最初の接続テストに `notify(...)` を使わないでください。実 push のノイズが増え、失敗時の診断も難しくなります。
+最初の接続テストに `sendMessage(...)` を使わないでください。実 push のノイズが増え、失敗時の診断も難しくなります。
 
 ## Agent Checklist
 
@@ -81,7 +85,7 @@ npm run test:all:real
 - 変更が server API、SDK API、CLI、MCP、docs、provider behavior のどれに影響するか確認する。
 - 影響するドキュメントを更新する。新しい SDK method は通常 `docs/sdk.md`、`docs/api.md`、`docs/integrating-other-projects.md`、tests に影響します。
 - 例はコピー可能にし、placeholder secrets だけを使う。
-- `preview` は通知を送らない、という意味を保つ。
+- `checkConfig` と `previewMessage` は通知を送らない、という意味を保つ。
 - 英語を既定のドキュメントパスとし、core integration docs を変更した場合は `docs/zh-CN` と `docs/ja` も更新する。
 - 既定テストは quiet のままにする。
 

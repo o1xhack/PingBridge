@@ -32,8 +32,8 @@ const runtime = createPingBridgeRuntime(
   },
   {
     ntfy: {
-      async send(_channel, event, context) {
-        providerCalls.push({ event, context });
+      async send(channel, event, context) {
+        providerCalls.push({ channel, event, context });
         return { ok: true, providerMessageId: "external-smoke-message" };
       }
     }
@@ -83,25 +83,56 @@ const client = new PingBridgeClient({
   token: process.env.PINGBRIDGE_TOKEN
 });
 
-const event = {
-  source: "external-consumer-smoke",
-  eventType: "task.completed",
-  target: "app",
-  title: "External consumer smoke",
-  message: "This came from an external temp project.",
-  changed: true,
-  dedupeKey: "external-consumer-smoke"
-};
-
 const health = await client.health();
 assert.equal(health.status, "ok");
 
-const preview = await client.preview(event);
+const config = {
+  app: {
+    id: "external-consumer-smoke",
+    name: "External Consumer Smoke",
+    iconUrl: "https://example.com/external-consumer-smoke.png",
+    defaultGroup: "app"
+  },
+  channels: {
+    user_ntfy: {
+      type: "ntfy",
+      server: "https://ntfy.invalid",
+      topic: "external-consumer-smoke-user-topic"
+    }
+  },
+  groups: {
+    app: {
+      label: "External smoke app",
+      channels: ["user_ntfy"]
+    }
+  }
+};
+
+const event = {
+  config,
+  message: {
+    eventType: "task.completed",
+    title: "External consumer smoke",
+    message: "This came from an external temp project.",
+    changed: true,
+    dedupeKey: "external-consumer-smoke",
+    presentation: {
+      url: "https://example.com/external-consumer-smoke"
+    }
+  }
+};
+
+const configHealth = await client.checkConfig(config);
+assert.equal(configHealth.status, "ok");
+assert.equal(configHealth.groups[0].channels[0].id, "user_ntfy");
+
+const preview = await client.previewMessage(event);
 assert.equal(preview.status, "preview");
 assert.equal(preview.notify, true);
-assert.equal(preview.channels[0].id, "ntfy_dummy");
+assert.equal(preview.app.name, "External Consumer Smoke");
+assert.equal(preview.channels[0].id, "user_ntfy");
 
-const response = await client.notify(event);
+const response = await client.sendMessage(event);
 assert.equal(response.status, "delivered");
 assert.equal(response.deliveries[0].status, "delivered");
 console.log("external consumer smoke: ok");
@@ -120,6 +151,9 @@ process.exit(0);
 
   if (providerCalls.length !== 1) {
     throw new Error(`Expected exactly one provider call after preview+notify, got ${providerCalls.length}.`);
+  }
+  if (providerCalls[0].channel.topic !== "external-consumer-smoke-user-topic") {
+    throw new Error("External consumer did not pass user-owned portable channel config.");
   }
   console.log("external consumer smoke: provider call verified");
 } finally {

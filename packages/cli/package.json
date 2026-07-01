@@ -1,6 +1,6 @@
 {
   "name": "@pingbridge/cli",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "PingBridge command line client.",
   "license": "MIT",
@@ -22,6 +22,6 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@pingbridge/client": "0.1.0"
+    "@pingbridge/client": "1.0.0"
   }
 }

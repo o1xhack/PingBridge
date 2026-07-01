@@ -55,9 +55,15 @@ npm run test:mcp
 現在のカバレッジ：
 
 - config environment expansion と validation
+- Bark / ntfy provider presentation formatting
 - TypeScript client request shape と error handling
+- portable config SDK request shape
 - bearer-token auth
 - changed event delivery
+- portable config health
+- portable message preview / send
+- portable provider config が service-side adapter に渡ること
+- portable provider secrets が event payload に保存されないこと
 - unchanged success ignored
 - failure delivery
 - priority、dedupe、retry
@@ -81,7 +87,17 @@ npm publishing gate です。clean/build、各 workspace の `npm pack`、一時
 npm run test:external
 ```
 
-一時的な外部プロジェクトを作成し、packed `@pingbridge/client` tarball をインストールし、ローカル PingBridge HTTP server を起動して `health`、`preview`、`notify` を呼び出します。
+一時的な外部プロジェクトを作成し、packed `@pingbridge/client` tarball をインストールし、ローカル PingBridge HTTP server を起動して `health`、`checkConfig`、`previewMessage`、`sendMessage` を呼び出します。
+
+この test は Backend Notification as a Service integration path を検証します。
+
+- App が SDK を install する
+- App が endpoint/token と user-owned provider config を保存する
+- App が service health を確認する
+- App が portable config health を確認する
+- App が 1 件の portable message を preview し、送信しない
+- App が 1 件の portable message を send する
+- service が portable channel config を使って provider layer で delivery する
 
 provider は fake なので Bark/ntfy/Telegram は送られません。
 

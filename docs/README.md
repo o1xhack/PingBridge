@@ -24,13 +24,16 @@ Localized documentation is available for:
 
 PingBridge is a backend notification service.
 
-Third-party apps send standard events to PingBridge. PingBridge owns provider secrets, routing, dedupe, retry, delivery logs, and provider-specific APIs.
+Third-party apps pass user-owned notification config to PingBridge. PingBridge owns provider adaptation, routing, formatting, dedupe, retry, delivery logs, and provider-specific APIs.
 
 The normal integration test order is:
 
 1. `health()` checks service reachability.
-2. `preview(...)` validates auth, payload, target, routing, priority, and dedupe without sending.
-3. `notify(...)` sends a real notification when routing says it should.
+2. `checkConfig(...)` validates user channel config without sending.
+3. `previewMessage(...)` validates one message without sending.
+4. `sendMessage(...)` sends a real notification when routing says it should.
+
+The older `preview(...)` and `notify(...)` methods remain available for service-managed YAML targets, CLI use, and MCP automation.
 
 ## Localization Policy
 

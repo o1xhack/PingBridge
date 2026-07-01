@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
+import { normalizeConfig } from "./config.js";
 import { PingBridgeStore, toDeliverySummary } from "./database.js";
 import { createDefaultProviders } from "./providers.js";
 import type {
@@ -10,9 +11,14 @@ import type {
   EventStatus,
   NormalizedEvent,
   EventPreviewResponse,
-  NotifyEventInput,
+  NotificationAppConfig,
+  NotificationGroupConfig,
+  NotificationPresentation,
   NotifyResponse,
   PingBridgeConfig,
+  PortableNotificationConfig,
+  PortableConfigHealthResponse,
+  PortablePreviewResponse,
   Priority,
   ProviderRegistry,
   RuleConfig,
@@ -37,6 +43,13 @@ interface RouteDecision {
   priority: Priority;
 }
 
+interface PortableNormalizedInput {
+  app: NotificationAppConfig;
+  group: string;
+  event: NormalizedEvent;
+  config: PingBridgeConfig;
+}
+
 export class PingBridgeService {
   private readonly providers: ProviderRegistry;
 
@@ -50,10 +63,19 @@ export class PingBridgeService {
 
   async notify(input: unknown): Promise<NotifyResponse> {
     const event = normalizeEventInput(input);
-    const route = this.resolveRoute(event);
+    return this.notifyNormalized(event, this.config);
+  }
+
+  async notifyWithConfig(input: unknown): Promise<NotifyResponse> {
+    const portable = normalizePortableNotificationInput(input, this.config.server);
+    return this.notifyNormalized(portable.event, portable.config);
+  }
+
+  private async notifyNormalized(event: NormalizedEvent, config: PingBridgeConfig): Promise<NotifyResponse> {
+    const route = this.resolveRoute(event, config);
 
     if (route.notify) {
-      this.assertTarget(route.target);
+      this.assertTarget(route.target, config);
     }
 
     const eventId = createId("evt");
@@ -70,7 +92,7 @@ export class PingBridgeService {
     }
 
     this.store.insertEvent({ id: eventId, createdAt, input: event, status: "accepted" });
-    const deliveries = await this.deliverToTarget(eventId, event, route.target, route.priority);
+    const deliveries = await this.deliverToTarget(eventId, event, route.target, route.priority, config);
     const finalStatus = summarizeEventStatus(deliveries);
     this.store.updateEventStatus(eventId, finalStatus);
 
@@ -79,7 +101,60 @@ export class PingBridgeService {
 
   preview(input: unknown): EventPreviewResponse {
     const event = normalizeEventInput(input);
-    const route = this.resolveRoute(event);
+    return this.previewNormalized(event, this.config);
+  }
+
+  previewWithConfig(input: unknown): PortablePreviewResponse {
+    const portable = normalizePortableNotificationInput(input, this.config.server);
+    return {
+      ...this.previewNormalized(portable.event, portable.config),
+      app: {
+        id: portable.app.id,
+        name: portable.app.name,
+        iconUrl: portable.app.iconUrl
+      },
+      group: portable.group
+    };
+  }
+
+  checkConfig(input: unknown): PortableConfigHealthResponse {
+    const portable = normalizePortableConfig(readPortableConfigInput(input), this.config.server).portable;
+    const channels = Object.entries(portable.channels).map(([id, channel]) => ({
+      id,
+      type: channel.type,
+      supported: Boolean(this.providers[channel.type])
+    }));
+    const warnings = channels
+      .filter((channel) => !channel.supported)
+      .map((channel) => `No provider registered for channel "${channel.id}" (${channel.type}).`);
+
+    return {
+      status: warnings.length === 0 ? "ok" : "warning",
+      app: {
+        id: portable.app.id,
+        name: portable.app.name,
+        iconUrl: portable.app.iconUrl
+      },
+      groups: Object.entries(portable.groups ?? {}).map(([id, group]) => ({
+        id,
+        label: group.label,
+        iconUrl: group.iconUrl,
+        channels: group.channels.map((channelId) => {
+          const channel = portable.channels[channelId];
+          return {
+            id: channelId,
+            type: channel.type,
+            supported: Boolean(this.providers[channel.type])
+          };
+        })
+      })),
+      channels,
+      warnings
+    };
+  }
+
+  private previewNormalized(event: NormalizedEvent, config: PingBridgeConfig): EventPreviewResponse {
+    const route = this.resolveRoute(event, config);
 
     if (!route.notify) {
       return {
@@ -95,15 +170,15 @@ export class PingBridgeService {
       };
     }
 
-    this.assertTarget(route.target);
+    this.assertTarget(route.target, config);
     return {
       status: "preview",
       notify: true,
       target: route.target,
       priority: route.priority,
-      channels: this.config.targets[route.target].channels.map((channelId) => ({
+      channels: config.targets[route.target].channels.map((channelId) => ({
         id: channelId,
-        type: this.config.channels[channelId].type
+        type: config.channels[channelId].type
       })),
       dedupe: {
         key: event.dedupeKey,
@@ -160,12 +235,13 @@ export class PingBridgeService {
     eventId: string,
     event: NormalizedEvent,
     targetId: string,
-    priority: Priority
+    priority: Priority,
+    config: PingBridgeConfig
   ): Promise<DeliverySummary[]> {
-    const target = this.config.targets[targetId];
+    const target = config.targets[targetId];
     return Promise.all(
       target.channels.map((channelId) => {
-        const channel = this.config.channels[channelId];
+        const channel = config.channels[channelId];
         return this.deliverToChannel(eventId, event, channelId, channel, priority);
       })
     );
@@ -246,8 +322,8 @@ export class PingBridgeService {
     return { attempts: retries + 1, result: lastResult };
   }
 
-  private resolveRoute(event: NormalizedEvent): RouteDecision {
-    const rule = (this.config.rules ?? []).find((candidate) => matchesRule(candidate, event));
+  private resolveRoute(event: NormalizedEvent, config: PingBridgeConfig): RouteDecision {
+    const rule = (config.rules ?? []).find((candidate) => matchesRule(candidate, event));
     if (rule) {
       return {
         notify: true,
@@ -263,8 +339,8 @@ export class PingBridgeService {
     return { notify: false, target: event.target, priority: "normal" };
   }
 
-  private assertTarget(targetId: string): void {
-    if (!this.config.targets[targetId]) {
+  private assertTarget(targetId: string, config: PingBridgeConfig): void {
+    if (!config.targets[targetId]) {
       throw new PingBridgeError(400, "unknown_target", `Unknown target "${targetId}".`);
     }
   }
@@ -298,8 +374,147 @@ export function normalizeEventInput(input: unknown): NormalizedEvent {
     changed: parseBoolean(record.changed, false),
     dedupeKey: optionalString(record.dedupeKey, "dedupeKey"),
     items: Array.isArray(record.items) ? record.items : undefined,
-    metadata: isObjectRecord(record.metadata) ? record.metadata : undefined
+    metadata: isObjectRecord(record.metadata) ? record.metadata : undefined,
+    presentation: normalizePresentation(record.presentation)
   };
+}
+
+export function normalizePortableNotificationInput(
+  input: unknown,
+  serverConfig: PingBridgeConfig["server"] = {}
+): PortableNormalizedInput {
+  if (!isObjectRecord(input)) {
+    throw new PingBridgeError(400, "invalid_portable_message", "Request body must be a JSON object.");
+  }
+
+  const config = normalizePortableConfig(input.config, serverConfig);
+  const message = requireObject(input.message, "message");
+  const group = chooseGroup(config.portable, message);
+  const groupConfig = config.portable.groups?.[group];
+
+  const event = normalizeEventInput({
+    source: config.portable.app.id,
+    eventType: requireNonEmptyString(message, "eventType"),
+    target: group,
+    title: requireNonEmptyString(message, "title"),
+    message: requireNonEmptyString(message, "message"),
+    severity: message.severity ?? config.portable.defaults?.severity ?? "info",
+    changed: message.changed ?? config.portable.defaults?.changed ?? false,
+    dedupeKey: message.dedupeKey,
+    items: message.items,
+    metadata: message.metadata,
+    presentation: mergePresentation(
+      {
+        appName: config.portable.app.name,
+        iconUrl: groupConfig?.iconUrl ?? config.portable.app.iconUrl,
+        group: groupConfig?.label ?? group
+      },
+      normalizePresentation(message.presentation)
+    )
+  });
+
+  return { app: config.portable.app, group, event, config: config.runtime };
+}
+
+function readPortableConfigInput(input: unknown): unknown {
+  if (isObjectRecord(input) && "config" in input) {
+    return input.config;
+  }
+  return input;
+}
+
+function normalizePortableConfig(
+  input: unknown,
+  serverConfig: PingBridgeConfig["server"]
+): { portable: PortableNotificationConfig; runtime: PingBridgeConfig } {
+  const record = requireObject(input, "config");
+  const appRecord = requireObject(record.app, "config.app");
+  const app: NotificationAppConfig = {
+    id: requireNonEmptyString(appRecord, "id"),
+    name: requireNonEmptyString(appRecord, "name"),
+    iconUrl: optionalString(appRecord.iconUrl, "config.app.iconUrl"),
+    defaultGroup: optionalString(appRecord.defaultGroup, "config.app.defaultGroup")
+  };
+
+  const channels = requireRecord(record.channels, "config.channels") as Record<string, ChannelConfig>;
+  const groups = normalizePortableGroups(record.groups, channels);
+  const defaults = isObjectRecord(record.defaults)
+    ? {
+        group: optionalString(record.defaults.group, "config.defaults.group"),
+        severity: normalizeOptionalSeverity(record.defaults.severity, "config.defaults.severity"),
+        changed: parseBoolean(record.defaults.changed, false)
+      }
+    : undefined;
+
+  if (app.defaultGroup && !groups[app.defaultGroup]) {
+    throw new PingBridgeError(400, "invalid_config", `config.app.defaultGroup "${app.defaultGroup}" is not defined.`);
+  }
+  if (defaults?.group && !groups[defaults.group]) {
+    throw new PingBridgeError(400, "invalid_config", `config.defaults.group "${defaults.group}" is not defined.`);
+  }
+
+  const portable: PortableNotificationConfig = {
+    app,
+    channels,
+    groups,
+    defaults,
+    rules: Array.isArray(record.rules) ? (record.rules as RuleConfig[]) : []
+  };
+
+  try {
+    const runtime = normalizeConfig({
+      server: serverConfig,
+      channels,
+      targets: groups,
+      rules: portable.rules
+    });
+    return { portable, runtime };
+  } catch (error) {
+    throw new PingBridgeError(400, "invalid_config", error instanceof Error ? error.message : String(error));
+  }
+}
+
+function normalizePortableGroups(
+  input: unknown,
+  channels: Record<string, ChannelConfig>
+): Record<string, NotificationGroupConfig> {
+  if (input === undefined || input === null) {
+    return { default: { channels: Object.keys(channels) } };
+  }
+
+  const groups = requireRecord(input, "config.groups");
+  const normalized: Record<string, NotificationGroupConfig> = {};
+  for (const [id, group] of Object.entries(groups)) {
+    if (!isObjectRecord(group)) {
+      throw new PingBridgeError(400, "invalid_config", `Group "${id}" must be an object.`);
+    }
+    if (!Array.isArray(group.channels) || group.channels.length === 0) {
+      throw new PingBridgeError(400, "invalid_config", `Group "${id}" must list at least one channel.`);
+    }
+    for (const channelId of group.channels) {
+      if (typeof channelId !== "string" || !channels[channelId]) {
+        throw new PingBridgeError(400, "invalid_config", `Group "${id}" references unknown channel "${channelId}".`);
+      }
+    }
+    normalized[id] = {
+      channels: [...group.channels],
+      label: optionalString(group.label, `config.groups.${id}.label`),
+      iconUrl: optionalString(group.iconUrl, `config.groups.${id}.iconUrl`)
+    };
+  }
+  return normalized;
+}
+
+function chooseGroup(config: PortableNotificationConfig, message: Record<string, unknown>): string {
+  const group =
+    optionalString(message.group, "message.group") ??
+    config.defaults?.group ??
+    config.app.defaultGroup ??
+    (config.groups?.default ? "default" : Object.keys(config.groups ?? {})[0]);
+  if (!group || !config.groups?.[group]) {
+    throw new PingBridgeError(400, "unknown_group", `Unknown notification group "${group ?? ""}".`);
+  }
+  return group;
 }
 
 function matchesRule(rule: RuleConfig, event: NormalizedEvent): boolean {
@@ -333,7 +548,7 @@ function summarizeEventStatus(deliveries: DeliverySummary[]): EventStatus {
   return "partial_failure";
 }
 
-function requireNonEmptyString(record: Record<string, unknown>, field: keyof NotifyEventInput): string {
+function requireNonEmptyString(record: Record<string, unknown>, field: string): string {
   const value = record[field];
   if (typeof value !== "string" || value.trim() === "") {
     throw new PingBridgeError(400, "invalid_event", `${String(field)} must be a non-empty string.`);
@@ -359,6 +574,65 @@ function parseBoolean(value: unknown, fallback: boolean): boolean {
     return value;
   }
   throw new PingBridgeError(400, "invalid_event", "changed must be a boolean when provided.");
+}
+
+function requireObject(value: unknown, field: string): Record<string, unknown> {
+  if (!isObjectRecord(value)) {
+    throw new PingBridgeError(400, "invalid_config", `${field} must be an object.`);
+  }
+  return value;
+}
+
+function requireRecord(value: unknown, field: string): Record<string, unknown> {
+  const record = requireObject(value, field);
+  if (Object.keys(record).length === 0) {
+    throw new PingBridgeError(400, "invalid_config", `${field} must not be empty.`);
+  }
+  return record;
+}
+
+function normalizeOptionalSeverity(value: unknown, field: string): Severity | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value === "string" && ["info", "success", "warning", "error"].includes(value)) {
+    return value as Severity;
+  }
+  throw new PingBridgeError(400, "invalid_config", `${field} must be one of info, success, warning, error.`);
+}
+
+function normalizePresentation(value: unknown): NotificationPresentation | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const record = requireObject(value, "presentation");
+  const presentation: NotificationPresentation = {
+    appName: optionalString(record.appName, "presentation.appName"),
+    iconUrl: optionalString(record.iconUrl, "presentation.iconUrl"),
+    group: optionalString(record.group, "presentation.group"),
+    url: optionalString(record.url, "presentation.url"),
+    tags: Array.isArray(record.tags)
+      ? record.tags.map((tag) => {
+          if (typeof tag !== "string" || tag.trim() === "") {
+            throw new PingBridgeError(400, "invalid_event", "presentation.tags must contain non-empty strings.");
+          }
+          return tag;
+        })
+      : undefined
+  };
+
+  return Object.values(presentation).some((entry) => entry !== undefined) ? presentation : undefined;
+}
+
+function mergePresentation(
+  defaults: NotificationPresentation,
+  override: NotificationPresentation | undefined
+): NotificationPresentation {
+  return {
+    ...defaults,
+    ...override,
+    tags: override?.tags ?? defaults.tags
+  };
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {

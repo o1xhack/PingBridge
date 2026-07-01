@@ -14,13 +14,18 @@ Authorization: Bearer <token>
 
 ## Secret Placement
 
-第三方 App 不应保存 provider secrets：
+PingBridge 支持两种 secret placement。
 
-- Obsidian plugin 中不要保存 Telegram bot token
-- shell scripts 中不要保存 Bark device key
-- automation repos 中不要保存 ntfy private token
+service-managed YAML targets：provider values 保存在 PingBridge server environment，并通过 YAML `${NAME}` 引用。
 
-这些值应保存在 PingBridge server environment，并通过 YAML `${NAME}` 引用。
+portable App/plugin integrations：用户可以把 Bark、Telegram 或 ntfy settings 填入 App。App 可以把这些值保存在用户本地 settings 或 secret store，但必须按 secret 处理：
+
+- 不要提交到仓库
+- 不要打印到日志
+- 不要放进 `message`、`items`、`metadata`、title 或 error
+- 不要发送给不相关的服务
+
+PingBridge 只在当前请求中使用 portable provider config。它会存 normalized event 和 delivery result，但不会把 portable Bark device key、Telegram bot token、ntfy token/topic 存入 SQLite event payload。
 
 ## ntfy Topics
 

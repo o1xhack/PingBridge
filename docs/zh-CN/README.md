@@ -22,15 +22,18 @@
 
 ## 核心概念
 
-PingBridge 是后端通知服务，不是本地发送工具。
+PingBridge 是 Backend Notification as a Service，不是本地发送工具。
 
-第三方 App 或插件只向 PingBridge 发送标准事件。PingBridge 服务端负责 provider secret、路由、去重、重试、delivery log 和 provider-specific API。
+第三方 App 或插件把用户自己的通知渠道配置和 message 传给 PingBridge。PingBridge 负责 provider adaptation、routing、formatting、dedupe、retry、delivery logs 和 provider-specific API。
 
 标准接入测试顺序是：
 
 1. `health()` 检查服务是否可达。
-2. `preview(...)` 检查鉴权、payload、target、routing、priority 和 dedupe，但不发送通知。
-3. `notify(...)` 在路由允许时发送真实通知。
+2. `checkConfig(...)` 检查用户渠道配置，但不发送通知。
+3. `previewMessage(...)` 检查单条 message，但不发送通知。
+4. `sendMessage(...)` 在 routing 允许时发送真实通知。
+
+旧的 `preview(...)` 和 `notify(...)` 仍保留给 YAML static targets、CLI 和 MCP automation。
 
 ## 当前 MVP 支持
 
@@ -41,6 +44,7 @@ PingBridge 是后端通知服务，不是本地发送工具。
 - TypeScript client
 - CLI
 - MCP server
+- App/plugin portable user config
 - YAML 配置 channels、targets 和 rules
 - SQLite event / delivery logs
 - 基础 retry 和 dedupe

@@ -1,22 +1,23 @@
-# 他プロジェクトへの組み込み
+# 他プロジェクトへの統合
 
-PingBridge はバックエンド通知サービスです。サードパーティアプリは Bark、ntfy、Telegram を直接組み込まず、PingBridge に標準イベントを送るべきです。
+PingBridge は App/plugin 向け Backend Notification as a Service です。
 
-## アプリが得られるもの
+App は Bark、Telegram、ntfy adapter を自前実装しません。App はユーザーの notification settings を集め、portable config として PingBridge に渡します。PingBridge が provider API、formatting、routing、retry、dedupe、delivery logs を処理します。
 
-組み込み後、アプリは次を実行できます。
+## 統合後にできること
 
-- PingBridge が到達可能か確認する
-- 通知を送らずに routing を preview する
-- success、changed、failure、auth-expired 通知を送る
-- サーバー側 provider routing を利用する
-- アプリ内に provider secrets を保存しない
+- ユーザーごとに Bark、Telegram、ntfy、または複数 channel を選べる
+- app name、icon、group label、click URL、tags を指定できる
+- push を送らず config health check できる
+- push を送らず 1 件の message を preview できる
+- 1 SDK method で実通知を送れる
+- plugin ごとに provider adapter を重複実装しなくてよい
 
-アプリは hosted cloud account、user management、provider-specific SDK を得るわけではありません。
+App は settings UI と local storage を担当します。PingBridge は provider delivery を担当します。
 
-## 現在の MVP インストール方法
+## 現在の MVP Install Path
 
-client package は publish 可能ですが、まだ npm には publish されていません。
+client package は publish 可能ですが、まだ npm には publish していません。
 
 publish 後：
 
@@ -24,7 +25,7 @@ publish 後：
 npm install @pingbridge/client
 ```
 
-publish 前は、この repository から local tarball を使います。
+publish 前は local tarball を使います。
 
 ```bash
 cd /path/to/PingBridge
@@ -32,49 +33,94 @@ npm run build
 npm pack --workspace @pingbridge/client --pack-destination /tmp
 ```
 
-別プロジェクト側：
+別 project で：
 
 ```bash
-npm install /tmp/pingbridge-client-0.1.0.tgz
+npm install /tmp/pingbridge-client-1.0.0.tgz
 ```
 
-import path は同じです。
+## App Settings
 
-```ts
-import { PingBridgeClient } from "@pingbridge/client";
-```
-
-## App 設定
-
-アプリやプラグインは PingBridge service settings だけを保存します。
+推奨 settings shape：
 
 ```ts
 interface PingBridgeSettings {
   enabled: boolean;
   endpoint: string;
   appToken: string;
-  target: string;
+  appName: string;
+  appIconUrl?: string;
+  defaultGroup: string;
+  channels: {
+    bark?: { enabled: boolean; endpoint?: string; deviceKey: string };
+    telegram?: { enabled: boolean; botToken: string; chatId: string };
+    ntfy?: { enabled: boolean; server?: string; topic: string; token?: string };
+  };
 }
 ```
 
-Bark device key、ntfy topic、Telegram bot token は保存しないでください。
+provider values はユーザーの local settings または secret store にだけ保存してください。commit、log 出力、event metadata への保存、無関係な service への送信は禁止です。
 
-推奨設定：
+## Portable Config を作る
 
-| Setting   | 説明                                                  |
-| --------- | ----------------------------------------------------- |
-| Enabled   | PingBridge 通知を有効化するか。                       |
-| Endpoint  | PingBridge service URL。例：`http://127.0.0.1:8787`。 |
-| App token | PingBridge service operator が作成した bearer token。 |
-| Target    | 安定した受信グループ。例：`me`、`ops`。               |
+```ts
+import type { PortableNotificationConfig } from "@pingbridge/client";
 
-## 3 ステップ連携テスト
+function buildPingBridgeConfig(settings: PingBridgeSettings): PortableNotificationConfig {
+  const channels: PortableNotificationConfig["channels"] = {};
 
-サードパーティプロジェクトではこの順序を使います。
+  if (settings.channels.bark?.enabled) {
+    channels.bark_phone = {
+      type: "bark",
+      endpoint: settings.channels.bark.endpoint,
+      deviceKey: settings.channels.bark.deviceKey
+    };
+  }
 
-### 1. Health Check
+  if (settings.channels.telegram?.enabled) {
+    channels.telegram_chat = {
+      type: "telegram",
+      botToken: settings.channels.telegram.botToken,
+      chatId: settings.channels.telegram.chatId
+    };
+  }
 
-サービス到達性を確認します。通知は送りません。
+  if (settings.channels.ntfy?.enabled) {
+    channels.ntfy_topic = {
+      type: "ntfy",
+      server: settings.channels.ntfy.server,
+      topic: settings.channels.ntfy.topic,
+      token: settings.channels.ntfy.token
+    };
+  }
+
+  return {
+    app: {
+      id: "obsidian-sync-trakt",
+      name: settings.appName || "Obsidian Sync Trakt",
+      iconUrl: settings.appIconUrl,
+      defaultGroup: settings.defaultGroup || "personal"
+    },
+    channels,
+    groups: {
+      personal: {
+        label: "Obsidian",
+        iconUrl: settings.appIconUrl,
+        channels: Object.keys(channels)
+      }
+    },
+    defaults: { group: "personal", changed: true }
+  };
+}
+```
+
+`channels` が空なら、PingBridge を呼ぶ前に settings error を表示してください。
+
+## 3 Step Integration Test
+
+### 1. Service Health
+
+PingBridge service の到達性だけを確認します。provider config は検証せず、通知も送りません。
 
 ```ts
 const ping = new PingBridgeClient({
@@ -85,124 +131,93 @@ const ping = new PingBridgeClient({
 await ping.health();
 ```
 
-CLI：
+### 2. Config Health
 
-```bash
-pingbridge health --endpoint "$PINGBRIDGE_ENDPOINT" --token "$PINGBRIDGE_TOKEN"
-```
-
-失敗した場合は endpoint、service 起動状態、network boundary を確認してください。
-
-### 2. Preview
-
-payload shape、token、target、routing、priority、dedupe state を確認します。通知は送りません。
+portable config shape、group、channel references、runtime provider support を確認します。通知は送りません。
 
 ```ts
-const preview = await ping.preview({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.completed",
-  target: settings.target,
-  title: "Trakt sync completed",
-  message: "Wrote 3 Daily Notes.",
-  changed: true,
-  dedupeKey: "obsidian-sync-trakt:daily-notes"
-});
+const config = buildPingBridgeConfig(settings);
+const result = await ping.checkConfig(config);
 
-console.log(preview.channels);
+if (result.status === "warning") {
+  console.warn(result.warnings.join("\n"));
+}
 ```
 
-失敗した場合は、実通知を試す前に token、target、payload shape、service config を直してください。
-
-`preview.notify` が `false` の場合、event は有効ですが現在の routing では送信されません。多くの unchanged success events ではこれが期待値です。
-
-### 3. Notify
-
-routing が許可する場合に実通知を送ります。
+### 3. Preview Then Send
 
 ```ts
-await ping.notify({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.completed",
-  target: settings.target,
-  title: "Trakt sync completed",
-  message: "Wrote 3 Daily Notes.",
-  changed: true,
-  dedupeKey: "obsidian-sync-trakt:daily-notes"
-});
+const input = {
+  config,
+  message: {
+    eventType: "sync.completed",
+    title: "Trakt sync completed",
+    message: "Wrote 3 Daily Notes.",
+    dedupeKey: "obsidian-sync-trakt:daily-notes",
+    presentation: {
+      url: "obsidian://open?vault=Main",
+      tags: ["obsidian", "sync"]
+    }
+  }
+};
+
+const preview = await ping.previewMessage(input);
+
+if (preview.notify) {
+  await ping.sendMessage(input);
+}
 ```
 
-`health` と `preview` が通ってから使ってください。
+`previewMessage(...)` は SQLite に書かず、provider notification も送りません。
+
+`sendMessage(...)` は実 notification 送信です。
 
 ## Failure と Auth Expired
 
 ```ts
-await ping.failed({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.failed",
-  target: settings.target,
-  title: "Trakt sync failed",
-  message: "OAuth invalid_grant"
-});
-
-await ping.authExpired({
-  source: "obsidian-sync-trakt",
-  target: settings.target,
-  title: "Trakt authorization expired",
-  message: "Reconnect Trakt before the next sync."
-});
-```
-
-## 最小 Helper
-
-```ts
-import { PingBridgeClient, PingBridgeClientError, type NotifyInput } from "@pingbridge/client";
-
-export async function sendPingBridgeEvent(
-  settings: PingBridgeSettings,
-  event: Omit<NotifyInput, "target">
-): Promise<void> {
-  if (!settings.enabled) return;
-
-  const ping = new PingBridgeClient({
-    endpoint: settings.endpoint,
-    token: settings.appToken
-  });
-
-  try {
-    await ping.notify({ ...event, target: settings.target });
-  } catch (error) {
-    if (error instanceof PingBridgeClientError) {
-      console.warn(`PingBridge failed: ${error.status} ${error.code}: ${error.message}`);
-      return;
-    }
-    throw error;
+await ping.sendMessage({
+  config,
+  message: {
+    eventType: "sync.failed",
+    title: "Trakt sync failed",
+    message: "OAuth invalid_grant",
+    severity: "error",
+    changed: true,
+    dedupeKey: "obsidian-sync-trakt:failure"
   }
-}
+});
+
+await ping.sendMessage({
+  config,
+  message: {
+    eventType: "auth.expired",
+    title: "Trakt authorization expired",
+    message: "Reconnect Trakt before the next sync.",
+    severity: "error",
+    changed: true
+  }
+});
 ```
 
-設定画面の "Test connection" には `ping.health()` と `ping.preview(...)` を使ってください。最初のテストに `notify(...)` を使うと実 push が送られます。
-
-## Event 命名
+## Event Naming
 
 安定した dotted event names を推奨します。
 
-| シナリオ              | 例                                  |
-| --------------------- | ----------------------------------- |
-| sync 成功かつ変更あり | `sync.completed` + `changed: true`  |
-| sync 成功かつ変更なし | `sync.completed` + `changed: false` |
-| sync 失敗             | `sync.failed`                       |
-| OAuth token 期限切れ  | `auth.expired`                      |
-| background job 完了   | `job.completed`                     |
-| background job 失敗   | `job.failed`                        |
+| Scenario                    | Example                             |
+| --------------------------- | ----------------------------------- |
+| sync success with changes   | `sync.completed` + `changed: true`  |
+| sync success with no change | `sync.completed` + `changed: false` |
+| sync failed                 | `sync.failed`                       |
+| OAuth token expired         | `auth.expired`                      |
+| background job completed    | `job.completed`                     |
+| background job failed       | `job.failed`                        |
 
-retry または重複の可能性がある event には `dedupeKey` を使ってください。よい key には通常 source、event type、日付または object id を含めます。
+retry や重複がありえる event には `dedupeKey` を使ってください。
 
 ## External Consumer Smoke Test
-
-PingBridge には quiet external consumer test があります。
 
 ```bash
 npm run test:external
 ```
 
-これは一時的な外部プロジェクトを作成し、packed `@pingbridge/client` tarball をインストールし、ローカル PingBridge HTTP server を起動して `health`、`preview`、`notify` を呼びます。fake provider を使うため Bark/ntfy/Telegram は送信されません。
+この test は temporary outside project を作り、packed `@pingbridge/client` tarball を install し、local PingBridge HTTP server を起動し、`health`、`checkConfig`、`previewMessage`、`sendMessage` を呼びます。preview は送信せず、send が fake provider を呼ぶことを検証します。

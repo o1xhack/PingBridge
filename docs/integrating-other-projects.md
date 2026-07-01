@@ -1,18 +1,21 @@
 # Integrating Other Projects
 
-PingBridge is a backend notification service. Third-party apps should not integrate Bark, ntfy, or Telegram directly. They should call PingBridge with standard events.
+PingBridge is a Backend Notification as a Service for apps and plugins.
+
+The app should not implement Bark, Telegram, or ntfy provider adapters. The app collects user notification settings, passes them to PingBridge as portable config, and lets PingBridge handle provider-specific APIs, formatting, routing, retry, dedupe, and delivery logs.
 
 ## What The App Gets
 
 After integration, an app can:
 
-- check whether PingBridge is reachable
-- preview routing without sending a notification
-- send success, changed, failure, and auth-expired notifications
-- rely on server-side provider routing
-- avoid storing provider secrets
+- let each end user choose Bark, Telegram, ntfy, or multiple channels
+- brand notifications with an app name, icon, group label, click URL, and tags
+- run a config health check without sending a push
+- preview one message without sending a push
+- send real notifications through one SDK call
+- avoid shipping duplicated provider adapter code in every plugin
 
-The app does not get a hosted cloud account, user management, or provider-specific SDKs.
+The app still owns its settings UI and local storage. PingBridge owns provider delivery.
 
 ## Current MVP Install Path
 
@@ -35,7 +38,7 @@ npm pack --workspace @pingbridge/client --pack-destination /tmp
 Then in another project:
 
 ```bash
-npm install /tmp/pingbridge-client-0.1.0.tgz
+npm install /tmp/pingbridge-client-1.0.0.tgz
 ```
 
 The import path is the same either way:
@@ -44,37 +47,108 @@ The import path is the same either way:
 import { PingBridgeClient } from "@pingbridge/client";
 ```
 
-## App Configuration
+## App Settings
 
-An app or plugin should store only PingBridge service settings:
+Recommended settings shape:
 
 ```ts
 interface PingBridgeSettings {
   enabled: boolean;
   endpoint: string;
   appToken: string;
-  target: string;
+  appName: string;
+  appIconUrl?: string;
+  defaultGroup: string;
+  channels: {
+    bark?: {
+      enabled: boolean;
+      endpoint?: string;
+      deviceKey: string;
+    };
+    telegram?: {
+      enabled: boolean;
+      botToken: string;
+      chatId: string;
+    };
+    ntfy?: {
+      enabled: boolean;
+      server?: string;
+      topic: string;
+      token?: string;
+    };
+  };
 }
 ```
 
-It should not store Bark device keys, ntfy topics, or Telegram bot tokens.
+Keep provider values in the user's local settings or secret store. Do not commit them, print them, put them in event metadata, or send them to unrelated services.
 
-Recommended UI labels:
+## Build Portable Config
 
-| Setting   | Description                                                     |
-| --------- | --------------------------------------------------------------- |
-| Enabled   | Turns PingBridge notifications on or off for the app.           |
-| Endpoint  | URL of the PingBridge service, such as `http://127.0.0.1:8787`. |
-| App token | Bearer token created by the PingBridge service operator.        |
-| Target    | Stable recipient group, such as `me` or `ops`.                  |
+Convert the app settings into a PingBridge portable config:
+
+```ts
+import type { PortableNotificationConfig } from "@pingbridge/client";
+
+function buildPingBridgeConfig(settings: PingBridgeSettings): PortableNotificationConfig {
+  const channels: PortableNotificationConfig["channels"] = {};
+
+  if (settings.channels.bark?.enabled) {
+    channels.bark_phone = {
+      type: "bark",
+      endpoint: settings.channels.bark.endpoint,
+      deviceKey: settings.channels.bark.deviceKey
+    };
+  }
+
+  if (settings.channels.telegram?.enabled) {
+    channels.telegram_chat = {
+      type: "telegram",
+      botToken: settings.channels.telegram.botToken,
+      chatId: settings.channels.telegram.chatId
+    };
+  }
+
+  if (settings.channels.ntfy?.enabled) {
+    channels.ntfy_topic = {
+      type: "ntfy",
+      server: settings.channels.ntfy.server,
+      topic: settings.channels.ntfy.topic,
+      token: settings.channels.ntfy.token
+    };
+  }
+
+  return {
+    app: {
+      id: "obsidian-sync-trakt",
+      name: settings.appName || "Obsidian Sync Trakt",
+      iconUrl: settings.appIconUrl,
+      defaultGroup: settings.defaultGroup || "personal"
+    },
+    channels,
+    groups: {
+      personal: {
+        label: "Obsidian",
+        iconUrl: settings.appIconUrl,
+        channels: Object.keys(channels)
+      }
+    },
+    defaults: {
+      group: "personal",
+      changed: true
+    }
+  };
+}
+```
+
+If `channels` is empty, show a settings error before calling PingBridge.
 
 ## Three-Step Integration Test
 
 Use this order in third-party projects.
 
-### 1. Health Check
+### 1. Service Health
 
-Checks that the service is reachable. This does not send a notification.
+Checks that PingBridge is reachable. This does not validate user provider config and does not send a notification.
 
 ```ts
 const ping = new PingBridgeClient({
@@ -85,98 +159,75 @@ const ping = new PingBridgeClient({
 await ping.health();
 ```
 
-CLI equivalent:
+### 2. Config Health
 
-```bash
-pingbridge health --endpoint "$PINGBRIDGE_ENDPOINT" --token "$PINGBRIDGE_TOKEN"
-```
-
-If this fails, the endpoint is wrong, the service is down, or the network boundary is blocking the app.
-
-### 2. Preview
-
-Checks payload shape, token, target, routing, priority, and dedupe state. This does not send a notification.
+Checks portable config shape, groups, channel references, and whether this PingBridge runtime has providers for the requested channel types. This does not send a notification.
 
 ```ts
-const preview = await ping.preview({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.completed",
-  target: settings.target,
-  title: "Trakt sync completed",
-  message: "Wrote 3 Daily Notes.",
-  changed: true,
-  dedupeKey: "obsidian-sync-trakt:daily-notes"
-});
+const config = buildPingBridgeConfig(settings);
+const result = await ping.checkConfig(config);
 
-console.log(preview.channels);
+if (result.status === "warning") {
+  console.warn(result.warnings.join("\n"));
+}
 ```
 
-CLI equivalent:
+If this fails, fix the token, config shape, empty channels, or group references before attempting a real notification.
 
-```bash
-pingbridge preview \
-  --endpoint "$PINGBRIDGE_ENDPOINT" \
-  --token "$PINGBRIDGE_TOKEN" \
-  --source obsidian-sync-trakt \
-  --event sync.completed \
-  --target me \
-  --title "Trakt sync completed" \
-  --message "Wrote 3 Daily Notes." \
-  --changed true
-```
+### 3. Preview Then Send
 
-If this fails, fix the token, target, payload shape, or service config before attempting a real notification.
-
-If `preview.notify` is `false`, the event is valid but current routing would not send it. That is expected for many unchanged success events.
-
-### 3. Notify
-
-Sends a real notification if routing says it should notify.
+Preview one message before sending it:
 
 ```ts
-await ping.notify({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.completed",
-  target: settings.target,
-  title: "Trakt sync completed",
-  message: "Wrote 3 Daily Notes.",
-  changed: true,
-  dedupeKey: "obsidian-sync-trakt:daily-notes"
-});
+const input = {
+  config,
+  message: {
+    eventType: "sync.completed",
+    title: "Trakt sync completed",
+    message: "Wrote 3 Daily Notes.",
+    dedupeKey: "obsidian-sync-trakt:daily-notes",
+    presentation: {
+      url: "obsidian://open?vault=Main",
+      tags: ["obsidian", "sync"]
+    }
+  }
+};
+
+const preview = await ping.previewMessage(input);
+
+if (preview.notify) {
+  await ping.sendMessage(input);
+}
 ```
 
-CLI equivalent:
+`previewMessage(...)` does not write SQLite rows and does not send provider notifications.
 
-```bash
-pingbridge notify \
-  --endpoint "$PINGBRIDGE_ENDPOINT" \
-  --token "$PINGBRIDGE_TOKEN" \
-  --source obsidian-sync-trakt \
-  --event sync.completed \
-  --target me \
-  --title "Trakt sync completed" \
-  --message "Wrote 3 Daily Notes." \
-  --changed true
-```
+`sendMessage(...)` sends a real notification if routing says it should notify.
 
-Use this only after `health` and `preview` pass.
-
-## Failure and Auth Expired Helpers
+## Failure and Auth Expired
 
 ```ts
-await ping.failed({
-  source: "obsidian-sync-trakt",
-  eventType: "sync.failed",
-  target: settings.target,
-  title: "Trakt sync failed",
-  message: "OAuth invalid_grant"
+await ping.sendMessage({
+  config,
+  message: {
+    eventType: "sync.failed",
+    title: "Trakt sync failed",
+    message: "OAuth invalid_grant",
+    severity: "error",
+    changed: true,
+    dedupeKey: "obsidian-sync-trakt:failure"
+  }
 });
 
-await ping.authExpired({
-  source: "obsidian-sync-trakt",
-  target: settings.target,
-  title: "Trakt authorization expired",
-  message: "Reconnect Trakt before the next sync."
+await ping.sendMessage({
+  config,
+  message: {
+    eventType: "auth.expired",
+    title: "Trakt authorization expired",
+    message: "Reconnect Trakt before the next sync.",
+    severity: "error",
+    changed: true
+  }
 });
 ```
 
@@ -185,11 +236,11 @@ await ping.authExpired({
 This pattern keeps app code small and testable:
 
 ```ts
-import { PingBridgeClient, PingBridgeClientError, type NotifyInput } from "@pingbridge/client";
+import { PingBridgeClient, PingBridgeClientError, type PortableNotificationConfig } from "@pingbridge/client";
 
-export async function sendPingBridgeEvent(
+export async function sendPingBridgeMessage(
   settings: PingBridgeSettings,
-  event: Omit<NotifyInput, "target">
+  message: Parameters<PingBridgeClient["sendMessage"]>[0]["message"]
 ): Promise<void> {
   if (!settings.enabled) return;
 
@@ -197,9 +248,10 @@ export async function sendPingBridgeEvent(
     endpoint: settings.endpoint,
     token: settings.appToken
   });
+  const config: PortableNotificationConfig = buildPingBridgeConfig(settings);
 
   try {
-    await ping.notify({ ...event, target: settings.target });
+    await ping.sendMessage({ config, message });
   } catch (error) {
     if (error instanceof PingBridgeClientError) {
       console.warn(`PingBridge failed: ${error.status} ${error.code}: ${error.message}`);
@@ -210,7 +262,7 @@ export async function sendPingBridgeEvent(
 }
 ```
 
-For settings screens, use `ping.health()` and `ping.preview(...)` for a "Test connection" button. Do not use `notify(...)` as the first test because it sends a real push.
+For settings screens, use `ping.health()`, `ping.checkConfig(...)`, and `ping.previewMessage(...)` for a "Test connection" button. Do not use `sendMessage(...)` as the first test because it sends a real push.
 
 ## Event Naming
 
@@ -225,7 +277,7 @@ Prefer stable dotted event names:
 | Background job completed        | `job.completed`                        |
 | Background job failed           | `job.failed`                           |
 
-Use `dedupeKey` for events that may retry or repeat. Good keys usually include the source, event type, and relevant date or object id.
+Use `dedupeKey` for events that may retry or repeat. Good keys usually include the app id, event type, and relevant date or object id.
 
 ## External Consumer Smoke Test
 
@@ -235,6 +287,6 @@ PingBridge includes a quiet external consumer test:
 npm run test:external
 ```
 
-This test creates a temporary outside project, installs the packed `@pingbridge/client` tarball, starts a local PingBridge HTTP server with fake provider delivery, calls `health`, `preview`, and `notify`, and verifies that preview does not send while notify does.
+This test creates a temporary outside project, installs the packed `@pingbridge/client` tarball, starts a local PingBridge HTTP server with fake provider delivery, calls `health`, `checkConfig`, `previewMessage`, and `sendMessage`, and verifies that preview does not send while send does.
 
-It proves the SDK can be installed and used by another project without relying on workspace imports.
+It proves the SDK can be installed and used by another project without relying on workspace imports or app-side provider adapters.

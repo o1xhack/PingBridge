@@ -53,7 +53,9 @@ Current unit coverage includes:
 
 - config environment expansion
 - config validation
+- provider presentation formatting for Bark and ntfy
 - TypeScript client request shape and error handling
+- portable config SDK request shape
 
 ## 3. Integration Tests
 
@@ -65,6 +67,10 @@ The integration test starts the real HTTP server with in-memory SQLite and fake 
 
 - bearer-token auth
 - changed event delivery
+- portable config health checks
+- portable message preview and send
+- portable provider config is passed to service-side adapters
+- portable provider secrets are not persisted in event payloads
 - unchanged success event ignored
 - failure event delivery
 - priority behavior
@@ -121,16 +127,17 @@ This catches packaging bugs that normal unit tests do not catch, such as missing
 npm run test:external
 ```
 
-This creates a temporary outside project, installs the packed `@pingbridge/client` tarball, starts a local PingBridge HTTP server, then calls `health`, `preview`, and `notify` from the outside project.
+This creates a temporary outside project, installs the packed `@pingbridge/client` tarball, starts a local PingBridge HTTP server, then calls `health`, `checkConfig`, `previewMessage`, and `sendMessage` from the outside project.
 
 It verifies the intended Backend Notification as a Service integration path:
 
 - app installs SDK
-- app stores endpoint/token/target
+- app stores endpoint/token plus user-owned provider config
 - app checks service health
-- app previews routing without sending
-- app sends a real event to the service
-- service delivers through its configured provider layer
+- app checks portable config health
+- app previews one portable message without sending
+- app sends one portable message to the service
+- service delivers through its provider layer using the portable channel config
 
 The provider is fake in this test, so it does not send Bark/ntfy/Telegram notifications.
 

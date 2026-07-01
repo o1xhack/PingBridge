@@ -1,57 +1,146 @@
 # REST API
 
-PingBridge はアプリ、プラグイン、CLI、Agent 向けに小さな REST API を提供します。
-
-TypeScript ではないプロジェクト、または `@pingbridge/client` を使えないプロジェクトは REST API を直接呼び出してください。
+PingBridge は App、plugin、CLI、agent 向けの小さな REST API を公開します。
 
 ## Endpoint Index
 
-| Method | Path                             | 通知送信       | 用途                                                          |
-| ------ | -------------------------------- | -------------- | ------------------------------------------------------------- |
-| `GET`  | `/v1/health`                     | いいえ         | サービス到達性を確認する。                                    |
-| `POST` | `/v1/events/preview`             | いいえ         | payload、auth、target、routing、priority、dedupe を確認する。 |
-| `POST` | `/v1/events`                     | routing に従う | 実イベントを送信する。                                        |
-| `GET`  | `/v1/channels`                   | いいえ         | 設定済み channel id と type を一覧する。                      |
-| `POST` | `/v1/channels/:id/test`          | はい           | 1 つの provider channel にテストメッセージを送る。            |
-| `GET`  | `/v1/events/recent?limit=20`     | いいえ         | 最近保存された events を見る。                                |
-| `GET`  | `/v1/deliveries/failed?limit=20` | いいえ         | 最近失敗した provider deliveries を見る。                     |
-| `GET`  | `/v1/deliveries/:id`             | いいえ         | 1 件の delivery result を見る。                               |
+| Method | Path                             | 通知送信       | 用途                                               |
+| ------ | -------------------------------- | -------------- | -------------------------------------------------- |
+| `GET`  | `/v1/health`                     | いいえ         | service reachability を確認する。                  |
+| `POST` | `/v1/configs/health`             | いいえ         | user-owned portable provider config を検証する。   |
+| `POST` | `/v1/messages/preview`           | いいえ         | portable config、message、routing、dedupe を検証。 |
+| `POST` | `/v1/messages`                   | routing に従う | user channel config で実 message を送信する。      |
+| `POST` | `/v1/events/preview`             | いいえ         | legacy/static target の YAML target event を検証。 |
+| `POST` | `/v1/events`                     | routing に従う | legacy/static target の実 event を送信。           |
+| `GET`  | `/v1/channels`                   | いいえ         | YAML configured channel id と type を一覧する。    |
+| `POST` | `/v1/channels/:id/test`          | はい           | operator が 1 つの YAML channel を test する。     |
+| `GET`  | `/v1/events/recent?limit=20`     | いいえ         | 最近の stored events を見る。                      |
+| `GET`  | `/v1/deliveries/failed?limit=20` | いいえ         | 最近の failed provider deliveries を見る。         |
+| `GET`  | `/v1/deliveries/:id`             | いいえ         | 1 件の delivery result を見る。                    |
 
 ## Auth
 
-`server.appToken` が設定されている場合、`/v1/health` 以外の endpoint には bearer token が必要です。
+`/v1/health` 以外は、`server.appToken` が設定されている場合 bearer token が必要です。
 
 ```http
 Authorization: Bearer <PINGBRIDGE_TOKEN>
 ```
 
-`server.appToken` が空の場合、保護 endpoint は認証なしになります。これは隔離されたローカル実験だけで使ってください。
+## API Modes
 
-## 標準 Event Payload
+| Mode                   | Endpoint                                                     | Use Case                                                                                    |
+| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Portable user config   | `/v1/configs/health`, `/v1/messages/preview`, `/v1/messages` | App/plugin。App が user-selected Bark、Telegram、ntfy config を保存して PingBridge に渡す。 |
+| Service-managed target | `/v1/events/preview`, `/v1/events`                           | CLI、MCP、trusted backend job。provider config は PingBridge YAML にある。                  |
 
-`POST /v1/events` と `POST /v1/events/preview` は同じ payload を受け取ります。
+App/plugin integration では portable user config を使ってください。plugin は Bark、Telegram、ntfy adapter を実装しません。
 
-必須フィールド：
+PingBridge は portable config を current request でだけ使います。SQLite には normalized event と delivery result を保存しますが、Bark device key、Telegram bot token、ntfy token/topic は保存しません。
 
-| フィールド  | 型     | 意味                                                                      |
-| ----------- | ------ | ------------------------------------------------------------------------- |
-| `source`    | string | アプリまたは automation の安定名。例：`obsidian-sync-trakt`。             |
-| `eventType` | string | 安定したイベント名。例：`sync.completed`、`sync.failed`、`auth.expired`。 |
-| `target`    | string | YAML `targets` で設定された受信グループ。                                 |
-| `title`     | string | 短い通知タイトル。                                                        |
-| `message`   | string | 人間が読める通知本文。                                                    |
+## Portable User Config Payload
 
-任意フィールド：
+```json
+{
+  "config": {
+    "app": {
+      "id": "obsidian-sync-trakt",
+      "name": "Obsidian Sync Trakt",
+      "iconUrl": "https://example.com/obsidian-sync-trakt.png",
+      "defaultGroup": "personal"
+    },
+    "channels": {
+      "phone": {
+        "type": "bark",
+        "endpoint": "https://api.day.app",
+        "deviceKey": "<USER_BARK_DEVICE_KEY>"
+      },
+      "ops_chat": {
+        "type": "telegram",
+        "botToken": "<USER_TELEGRAM_BOT_TOKEN>",
+        "chatId": "<USER_TELEGRAM_CHAT_ID>"
+      },
+      "topic": {
+        "type": "ntfy",
+        "server": "https://ntfy.sh",
+        "topic": "<USER_NTFY_TOPIC>"
+      }
+    },
+    "groups": {
+      "personal": {
+        "label": "Obsidian",
+        "channels": ["phone", "topic"]
+      }
+    },
+    "defaults": {
+      "group": "personal",
+      "changed": true
+    }
+  },
+  "message": {
+    "eventType": "sync.completed",
+    "title": "Trakt sync completed",
+    "message": "Wrote 3 Daily Notes.",
+    "dedupeKey": "obsidian-sync-trakt:daily-notes",
+    "presentation": {
+      "url": "obsidian://open?vault=Main",
+      "tags": ["obsidian", "sync"]
+    }
+  }
+}
+```
 
-| フィールド  | 型                                    | 既定値  | 意味                                                     |
-| ----------- | ------------------------------------- | ------- | -------------------------------------------------------- |
-| `severity`  | `info`, `success`, `warning`, `error` | `info`  | 既定 routing と provider formatting に使う。             |
-| `changed`   | boolean                               | `false` | 意味のある変更を表すかどうか。                           |
-| `dedupeKey` | string                                | none    | dedupe window 内の重複 key は保存されるが送信されない。  |
-| `items`     | array                                 | none    | ログや将来の formatting 用の構造化詳細。                 |
-| `metadata`  | object                                | none    | 追加の machine-readable context。secret を入れないこと。 |
+`config.app.name`、`config.app.iconUrl`、group `label`、`message.presentation` は provider formatting に使われます。App 側で Bark URL、Telegram request、ntfy headers を組み立てる必要はありません。
 
-例：
+## Portable Config Health
+
+```http
+POST /v1/configs/health
+```
+
+portable config を検証します。通知は送らず、SQLite にも書きません。
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "app": {
+    "id": "obsidian-sync-trakt",
+    "name": "Obsidian Sync Trakt"
+  },
+  "groups": [
+    {
+      "id": "personal",
+      "label": "Obsidian",
+      "channels": [{ "id": "phone", "type": "bark", "supported": true }]
+    }
+  ],
+  "channels": [{ "id": "phone", "type": "bark", "supported": true }],
+  "warnings": []
+}
+```
+
+`status: "warning"` は config shape が valid だが、この runtime に一部 channel type の provider がないことを意味します。
+
+## Preview Portable Message
+
+```http
+POST /v1/messages/preview
+```
+
+portable config + message を検証し、routing、priority、channels、dedupe を計算します。通知は送らず、SQLite にも書きません。
+
+## Send Portable Message
+
+```http
+POST /v1/messages
+```
+
+request 内の portable user config を使って実 notification を送ります。Response status は `202 Accepted` です。
+
+## Standard Event Payload
+
+`POST /v1/events` と `POST /v1/events/preview` は legacy/static target payload を使います。
 
 ```json
 {
@@ -62,157 +151,35 @@ Authorization: Bearer <PINGBRIDGE_TOKEN>
   "message": "Wrote 3 Daily Notes.",
   "severity": "info",
   "changed": true,
-  "dedupeKey": "obsidian-sync-trakt:2026-06-24:daily-notes",
-  "items": [
-    {
-      "time": "09:12",
-      "action": "watched",
-      "title": "S01E03"
-    }
-  ]
+  "dedupeKey": "obsidian-sync-trakt:daily-notes"
 }
 ```
 
-## Routing Summary
+これらは provider config が PingBridge YAML にある場合に使います。
 
-PingBridge は既定で次の場合に通知を送ります。
+## Routing
 
-- `severity` が `error`
+default で送信されるもの：
+
+- `severity: error`
 - `eventType` が `.failed` で終わる
 - `eventType` が `auth.expired`
-- `changed` が `true`
-- 設定済み rule に一致する
+- `changed: true`
+- configured rule が match
 
-通常の成功イベントで `changed: false` の場合は `ignored` として保存されます。
-
-## Health
-
-```http
-GET /v1/health
-```
-
-レスポンス：
-
-```json
-{
-  "status": "ok"
-}
-```
-
-## Preview Event
-
-```http
-POST /v1/events/preview
-Authorization: Bearer <PINGBRIDGE_TOKEN>
-Content-Type: application/json
-```
-
-`preview` は payload、routing、target channels、priority、dedupe state を検証します。ただし SQLite へ書き込まず、provider 通知も送りません。サードパーティプロジェクトのテストボタンはこれを優先してください。
-
-```bash
-curl -X POST http://127.0.0.1:8787/v1/events/preview \
-  -H "Authorization: Bearer $PINGBRIDGE_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "source": "my-app",
-    "eventType": "task.completed",
-    "target": "me",
-    "title": "Preview only",
-    "message": "This checks routing without sending.",
-    "changed": true,
-    "dedupeKey": "my-app:task.completed:2026-06-30"
-  }'
-```
-
-レスポンス状態：`200 OK`
-
-```json
-{
-  "status": "preview",
-  "notify": true,
-  "target": "me",
-  "priority": "normal",
-  "channels": [
-    {
-      "id": "ntfy_personal",
-      "type": "ntfy"
-    }
-  ],
-  "dedupe": {
-    "key": "obsidian-sync-trakt:2026-06-24:daily-notes",
-    "duplicate": false
-  }
-}
-```
-
-`notify: false` はイベントが有効だが現在の routing では送信されない、という意味です。たとえば `changed: false` の通常 `sync.completed` は多くの場合 ignored になります。
-
-## Send Event
-
-```http
-POST /v1/events
-Authorization: Bearer <PINGBRIDGE_TOKEN>
-Content-Type: application/json
-```
-
-これは実送信 endpoint です。連携テストでは先に `/v1/events/preview` を呼び出してください。
-
-```bash
-curl -X POST http://127.0.0.1:8787/v1/events \
-  -H "Authorization: Bearer $PINGBRIDGE_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "source": "my-app",
-    "eventType": "task.completed",
-    "target": "me",
-    "title": "Task completed",
-    "message": "The scheduled task finished.",
-    "changed": true,
-    "dedupeKey": "my-app:task.completed:2026-06-30"
-  }'
-```
-
-レスポンス状態：`202 Accepted`
-
-Event status：
-
-| Status            | 意味                                                         |
-| ----------------- | ------------------------------------------------------------ |
-| `delivered`       | 選択された全 channels が成功。                               |
-| `partial_failure` | 少なくとも 1 channel が成功し、少なくとも 1 channel が失敗。 |
-| `failed`          | 選択された全 channels が失敗。                               |
-| `ignored`         | routing が送信しないと判断。                                 |
-| `deduplicated`    | `dedupeKey` が dedupe window 内で既に受け入れ済み。          |
-
-## その他 Endpoints
-
-`POST /v1/channels/:id/test` は実テスト通知を送ります。サービス運用者向けであり、通常のアプリ連携テストには使わないでください。
-
-`GET /v1/channels`、`GET /v1/events/recent?limit=20`、`GET /v1/deliveries/failed?limit=20`、`GET /v1/deliveries/:id` は bearer token が必要で、通知は送りません。
+通常の `changed: false` success event は `ignored` として記録されます。
 
 ## Errors
 
-エラーレスポンス形式：
+代表的な error：
 
-```json
-{
-  "error": {
-    "code": "unauthorized",
-    "message": "Missing or invalid bearer token."
-  }
-}
-```
-
-よくあるエラーコード：
-
-| HTTP  | Code                 | 主な原因                                  |
-| ----- | -------------------- | ----------------------------------------- |
-| `400` | `invalid_json`       | request body が有効な JSON ではない。     |
-| `400` | `invalid_event`      | 必須 event field が欠落または無効。       |
-| `400` | `invalid_severity`   | `severity` が許可値ではない。             |
-| `400` | `unknown_target`     | `target` が未設定。                       |
-| `401` | `unauthorized`       | bearer token がない、または間違っている。 |
-| `404` | `not_found`          | route が存在しない。                      |
-| `404` | `channel_not_found`  | channel id が未設定。                     |
-| `404` | `delivery_not_found` | delivery id が存在しない。                |
-| `500` | `internal_error`     | 予期しないサーバーエラー。                |
+| HTTP  | Code                       | Cause                                                               |
+| ----- | -------------------------- | ------------------------------------------------------------------- |
+| `400` | `invalid_json`             | body が valid JSON ではない。                                       |
+| `400` | `invalid_event`            | event fields が missing または invalid。                            |
+| `400` | `invalid_config`           | portable config が missing/invalid、または unknown channel を参照。 |
+| `400` | `invalid_portable_message` | portable message request body が invalid。                          |
+| `400` | `unknown_group`            | message が `config.groups` にない group を参照。                    |
+| `400` | `unknown_target`           | legacy/static target が未設定。                                     |
+| `401` | `unauthorized`             | bearer token が missing または invalid。                            |
+| `404` | `not_found`                | route が存在しない。                                                |

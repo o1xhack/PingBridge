@@ -30,6 +30,41 @@ export interface TargetConfig {
   channels: string[];
 }
 
+export interface NotificationAppConfig {
+  id: string;
+  name: string;
+  iconUrl?: string;
+  defaultGroup?: string;
+}
+
+export interface NotificationGroupConfig {
+  channels: string[];
+  label?: string;
+  iconUrl?: string;
+}
+
+export interface NotificationDefaultsConfig {
+  group?: string;
+  severity?: Severity;
+  changed?: boolean;
+}
+
+export interface PortableNotificationConfig {
+  app: NotificationAppConfig;
+  channels: Record<string, ChannelConfig>;
+  groups?: Record<string, NotificationGroupConfig>;
+  defaults?: NotificationDefaultsConfig;
+  rules?: RuleConfig[];
+}
+
+export interface NotificationPresentation {
+  appName?: string;
+  iconUrl?: string;
+  group?: string;
+  url?: string;
+  tags?: string[];
+}
+
 export interface RuleMatch {
   source?: string;
   eventType?: string;
@@ -73,11 +108,47 @@ export interface NotifyEventInput {
   dedupeKey?: string;
   items?: unknown[];
   metadata?: Record<string, unknown>;
+  presentation?: NotificationPresentation;
 }
 
 export interface NormalizedEvent extends NotifyEventInput {
   severity: Severity;
   changed: boolean;
+}
+
+export interface PortableMessageInput {
+  eventType: string;
+  title: string;
+  message: string;
+  group?: string;
+  severity?: Severity;
+  changed?: boolean;
+  dedupeKey?: string;
+  items?: unknown[];
+  metadata?: Record<string, unknown>;
+  presentation?: NotificationPresentation;
+}
+
+export interface PortableNotificationInput {
+  config: PortableNotificationConfig;
+  message: PortableMessageInput;
+}
+
+export interface PortableConfigHealthResponse {
+  status: "ok" | "warning";
+  app: {
+    id: string;
+    name: string;
+    iconUrl?: string;
+  };
+  groups: Array<{
+    id: string;
+    label?: string;
+    iconUrl?: string;
+    channels: Array<{ id: string; type: ChannelType; supported: boolean }>;
+  }>;
+  channels: Array<{ id: string; type: ChannelType; supported: boolean }>;
+  warnings: string[];
 }
 
 export type EventStatus = "accepted" | "delivered" | "partial_failure" | "failed" | "ignored" | "deduplicated";
@@ -128,6 +199,15 @@ export interface EventPreviewResponse {
     key?: string;
     duplicate: boolean;
   };
+}
+
+export interface PortablePreviewResponse extends EventPreviewResponse {
+  app: {
+    id: string;
+    name: string;
+    iconUrl?: string;
+  };
+  group: string;
 }
 
 export interface StoredEvent {

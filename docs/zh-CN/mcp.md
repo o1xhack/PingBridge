@@ -2,6 +2,8 @@
 
 `@pingbridge/mcp-server` 暴露 MCP stdio server，让 Codex / Claude-style agents 可以通过 PingBridge 发送通知。
 
+MCP server 当前使用 service-managed event flow，适合 PingBridge YAML 已经定义 channels/targets 的可信自动化。App/plugin 接入应使用 `@pingbridge/client` 的 portable config methods。
+
 ## 启动
 
 ```bash
@@ -47,4 +49,4 @@ Input:
 
 ## Agent Guidance
 
-Agent 应用 `preview` / dry-run style tests 验证配置，再发送真实 notification。不要把 provider secrets 放进 MCP config；MCP 只需要 PingBridge endpoint 和 app token。
+Agent 应先用 service-managed preview / dry-run style tests 验证 YAML target，再发送真实 notification。不要把 provider secrets 放进 MCP config；MCP 只需要 PingBridge endpoint 和 app token。

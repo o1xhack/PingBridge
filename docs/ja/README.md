@@ -22,15 +22,18 @@ PingBridge の既定ドキュメント言語は英語です。このディレク
 
 ## コアコンセプト
 
-PingBridge はバックエンド通知サービスであり、ローカル送信ツールではありません。
+PingBridge は Backend Notification as a Service であり、ローカル送信ツールではありません。
 
-サードパーティのアプリやプラグインは標準イベントを PingBridge に送ります。provider secret、ルーティング、重複排除、リトライ、delivery log、provider-specific API は PingBridge サーバー側が所有します。
+サードパーティのアプリやプラグインは user-owned notification config と message を PingBridge に渡します。provider adaptation、routing、formatting、dedupe、retry、delivery logs、provider-specific API は PingBridge が担当します。
 
 標準の組み込みテスト順序は次の通りです。
 
 1. `health()` でサービス到達性を確認する。
-2. `preview(...)` で認証、payload、target、routing、priority、dedupe を確認する。ただし通知は送らない。
-3. `notify(...)` でルーティングが許可した場合に実通知を送る。
+2. `checkConfig(...)` で user channel config を確認する。ただし通知は送らない。
+3. `previewMessage(...)` で 1 件の message を確認する。ただし通知は送らない。
+4. `sendMessage(...)` で routing が許可した場合に実通知を送る。
+
+古い `preview(...)` と `notify(...)` は YAML static targets、CLI、MCP automation 向けに残っています。
 
 ## 現在の MVP
 
@@ -41,6 +44,7 @@ PingBridge はバックエンド通知サービスであり、ローカル送信
 - TypeScript client
 - CLI
 - MCP server
+- App/plugin portable user config
 - YAML による channels、targets、rules の設定
 - SQLite event / delivery logs
 - 基本的な retry と dedupe

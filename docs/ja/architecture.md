@@ -1,59 +1,66 @@
-# アーキテクチャ
+# Architecture
 
-PingBridge は REST-first notification gateway です。呼び出し側は標準イベントを 1 回送信し、PingBridge が送信可否と送信先を決めます。
+PingBridge は REST-first notification gateway です。caller は 1 件の normalized message を送信し、PingBridge が送信可否と delivery channels を決定します。
+
+## API Modes
+
+### Portable User Config
+
+App/plugin integration の推奨 mode です。
+
+1. App は PingBridge endpoint/token と user-selected notification channel settings を保存します。
+2. App は `POST /v1/configs/health` で portable config を検証します。通知は送りません。
+3. App は `POST /v1/messages/preview` で 1 件の message、group routing、priority、dedupe を検証します。通知は送りません。
+4. App は `POST /v1/messages` で実送信します。
+5. PingBridge は portable config を request-local in-memory runtime config に変換します。
+6. portable config の provider secrets は delivery にだけ使われ、SQLite には保存されません。
+
+### Service-Managed Targets
+
+CLI、MCP automation、trusted backend jobs に向いた mode です。
+
+1. service operator が YAML に `channels`、`targets`、`rules` を設定します。
+2. caller は target id を含む `POST /v1/events/preview` または `POST /v1/events` を送ります。
+3. PingBridge は service YAML config に対して target を resolve します。
 
 ## Runtime Flow
 
-1. Client が bearer token 付きで `POST /v1/events` を呼び出す。
-2. Server が event payload を検証する。
-3. Rules を順番に評価する。
-4. rule が一致しない場合、既定 MVP behavior を使う。
-   - `severity: error` は送信される。
-   - `.failed` で終わる event type は送信される。
-   - `auth.expired` は送信される。
-   - `changed: true` は送信される。
-   - 通常の `changed: false` events は記録されるが送信されない。
-5. `dedupeKey` があり、設定 window 内で既に受け入れ済みなら、event は `deduplicated` として保存され、delivery は試行されない。
-6. event を SQLite に書き込む。
-7. 各 target channel に provider delivery attempt を実行する。
-8. 失敗した provider call は server config に従って retry される。
-9. delivery result を SQLite に書き込む。
+1. server は auth と JSON を検証します。
+2. portable request は `config.app`、`config.channels`、`config.groups`、message shape を検証します。
+3. standard event request は `source`、`eventType`、`target`、`title`、`message` を検証します。
+4. rules を順番に評価します。
+5. default behavior は error、`.failed`、`auth.expired`、`changed: true` を送信します。
+6. duplicate `dedupeKey` は `deduplicated` として保存され、delivery は行われません。
+7. real send request は SQLite に event を書きます。
+8. 選択された各 channel で provider delivery attempt を行います。
+9. provider failure は server config に従って retry します。
+10. delivery result を SQLite に保存します。
+
+Preview と config-health endpoints は SQLite に書かず、provider notification も送りません。
 
 ## Packages
 
 ```text
-server
-  config.ts      YAML loading, env expansion, config validation
-  database.ts    SQLite schema and event/delivery persistence
-  providers.ts   Telegram, Bark, and ntfy HTTP providers
-  service.ts     routing, dedupe, retry, delivery orchestration
-  http.ts        REST API server
-
-client-js
-  index.ts       TypeScript HTTP client
-
-cli
-  index.ts       command-line wrapper around client-js
-
-mcp-server
-  index.ts       MCP stdio server
-  tools.ts       testable MCP tool handlers
+server        REST API, config, SQLite, providers, routing, retry
+client-js     TypeScript HTTP client
+cli           static event client wrapper
+mcp-server    MCP stdio server
 ```
 
 ## Data Store
 
-SQLite には 2 つの table があります。
+SQLite には次の table があります。
 
-- `events`: accepted request ごとに 1 行。ignored と deduplicated events も含む。
-- `deliveries`: channel delivery attempt result ごとに 1 行。
+- `events`: real send request 1 件につき 1 row。ignored と deduplicated も含む。
+- `deliveries`: channel delivery attempt result 1 件につき 1 row。
 
-Provider secrets は SQLite に保存されません。YAML config と environment expansion から取得されます。
+YAML provider secrets は server environment から load されます。portable user config secrets は request ごとに渡されます。どちらも provider secrets を SQLite event payload には保存しません。
 
 ## 1.0 Non-Goals
 
 - Web UI
-- hosted SaaS
-- multi-user accounts
-- workflow orchestration
-- サードパーティアプリ内の provider-specific SDK
-- TypeScript 以外の language-specific SDK
+- hosted SaaS account system
+- multi-tenant user accounts
+- Novu / Knock レベルの workflow orchestration
+- third-party app 内の provider-specific SDK
+- TypeScript 以外の language SDK

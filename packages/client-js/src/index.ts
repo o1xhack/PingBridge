@@ -11,6 +11,96 @@ export interface NotifyInput {
   dedupeKey?: string;
   items?: unknown[];
   metadata?: Record<string, unknown>;
+  presentation?: NotificationPresentation;
+}
+
+export interface NotificationPresentation {
+  appName?: string;
+  iconUrl?: string;
+  group?: string;
+  url?: string;
+  tags?: string[];
+}
+
+export type ChannelConfig =
+  | {
+      type: "telegram";
+      botToken: string;
+      chatId: string;
+      parseMode?: "Markdown" | "MarkdownV2" | "HTML";
+    }
+  | {
+      type: "bark";
+      endpoint?: string;
+      deviceKey: string;
+    }
+  | {
+      type: "ntfy";
+      server?: string;
+      topic: string;
+      token?: string;
+    };
+
+export interface PortableNotificationConfig {
+  app: {
+    id: string;
+    name: string;
+    iconUrl?: string;
+    defaultGroup?: string;
+  };
+  channels: Record<string, ChannelConfig>;
+  groups?: Record<string, { channels: string[]; label?: string; iconUrl?: string }>;
+  defaults?: {
+    group?: string;
+    severity?: Severity;
+    changed?: boolean;
+  };
+  rules?: Array<{
+    match: {
+      source?: string;
+      eventType?: string;
+      target?: string;
+      changed?: boolean;
+      severity?: Severity;
+    };
+    target?: string;
+    priority?: "low" | "normal" | "high";
+  }>;
+}
+
+export interface PortableMessageInput {
+  eventType: string;
+  title: string;
+  message: string;
+  group?: string;
+  severity?: Severity;
+  changed?: boolean;
+  dedupeKey?: string;
+  items?: unknown[];
+  metadata?: Record<string, unknown>;
+  presentation?: NotificationPresentation;
+}
+
+export interface PortableNotificationInput {
+  config: PortableNotificationConfig;
+  message: PortableMessageInput;
+}
+
+export interface PortableConfigHealthResponse {
+  status: "ok" | "warning";
+  app: {
+    id: string;
+    name: string;
+    iconUrl?: string;
+  };
+  groups: Array<{
+    id: string;
+    label?: string;
+    iconUrl?: string;
+    channels: Array<{ id: string; type: "telegram" | "bark" | "ntfy"; supported: boolean }>;
+  }>;
+  channels: Array<{ id: string; type: "telegram" | "bark" | "ntfy"; supported: boolean }>;
+  warnings: string[];
 }
 
 export interface DeliverySummary {
@@ -40,6 +130,15 @@ export interface EventPreviewResponse {
     key?: string;
     duplicate: boolean;
   };
+}
+
+export interface PortablePreviewResponse extends EventPreviewResponse {
+  app: {
+    id: string;
+    name: string;
+    iconUrl?: string;
+  };
+  group: string;
 }
 
 export interface PingBridgeClientOptions {
@@ -92,6 +191,13 @@ export class PingBridgeClient {
     });
   }
 
+  sendMessage(input: PortableNotificationInput): Promise<NotifyResponse> {
+    return this.request<NotifyResponse>("/v1/messages", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  }
+
   health(): Promise<HealthResponse> {
     return this.request<HealthResponse>("/v1/health", { method: "GET" });
   }
@@ -100,6 +206,20 @@ export class PingBridgeClient {
     return this.request<EventPreviewResponse>("/v1/events/preview", {
       method: "POST",
       body: JSON.stringify(input)
+    });
+  }
+
+  previewMessage(input: PortableNotificationInput): Promise<PortablePreviewResponse> {
+    return this.request<PortablePreviewResponse>("/v1/messages/preview", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  }
+
+  checkConfig(config: PortableNotificationConfig): Promise<PortableConfigHealthResponse> {
+    return this.request<PortableConfigHealthResponse>("/v1/configs/health", {
+      method: "POST",
+      body: JSON.stringify({ config })
     });
   }
 

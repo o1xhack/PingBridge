@@ -4,14 +4,14 @@
 
 ## 产品契约
 
-PingBridge 是后端通知服务，不是本地发送工具。
+PingBridge 是 Backend Notification as a Service，不是本地发送工具。
 
-第三方 App 发送标准事件给 PingBridge。PingBridge 负责 provider secrets、routing、dedupe、retry、delivery logs 和 provider-specific HTTP APIs。
+第三方 App 把 portable user notification config 和 message 传给 PingBridge。PingBridge 负责 provider adaptation、routing、dedupe、retry、delivery logs 和 provider-specific HTTP APIs。
 
 标准链路：
 
 ```text
-app/plugin -> @pingbridge/client 或 REST API -> PingBridge service -> Telegram/Bark/ntfy
+app/plugin settings -> portable config -> @pingbridge/client 或 REST API -> PingBridge service -> Telegram/Bark/ntfy
 ```
 
 第三方 App 只保存：
@@ -19,18 +19,21 @@ app/plugin -> @pingbridge/client 或 REST API -> PingBridge service -> Telegram/
 ```text
 endpoint
 appToken
-target
+user-selected Bark/Telegram/ntfy config
+app name/icon/group defaults
 ```
 
-不要保存：
+不要实现或复制：
 
 ```text
-Telegram bot token
-Bark device key
-ntfy topic/token
+Telegram HTTP adapter
+Bark HTTP adapter
+ntfy HTTP adapter
 PingBridge SQLite data
 provider smoke credentials
 ```
+
+portable provider config 可以保存在用户本地 App settings 中，但不能提交、打印或写入 event metadata。
 
 ## 文档地图
 
@@ -69,10 +72,11 @@ npm run test:all:real
 给另一个项目接入 PingBridge 时，顺序固定为：
 
 1. `health()` 检查服务是否可达。
-2. `preview(...)` 检查 payload、auth、target、routing、priority 和 dedupe，不发送通知。
-3. `notify(...)` 发送真实通知。
+2. `checkConfig(...)` 检查 portable user channel config，不发送通知。
+3. `previewMessage(...)` 检查单条 message，不发送通知。
+4. `sendMessage(...)` 发送真实通知。
 
-不要把 `notify(...)` 当作第一个连接测试。它会制造真实推送噪音，也会让失败排查更混乱。
+不要把 `sendMessage(...)` 当作第一个连接测试。它会制造真实推送噪音，也会让失败排查更混乱。
 
 ## Agent Checklist
 
@@ -81,7 +85,7 @@ npm run test:all:real
 - 确认变更影响 server API、SDK API、CLI、MCP、docs 还是 provider behavior。
 - 更新所有受影响的文档。新增 SDK method 通常会影响 `docs/sdk.md`、`docs/api.md`、`docs/integrating-other-projects.md` 和测试。
 - 示例必须可复制，并且只使用 placeholder secrets。
-- 保持 `preview` 文档语义：不发送通知。
+- 保持 `checkConfig` 和 `previewMessage` 文档语义：不发送通知。
 - 英文是默认文档路径；核心接入文档变化时要同步 `docs/zh-CN` 和 `docs/ja`。
 - 保持默认测试 quiet。
 

@@ -1,8 +1,8 @@
 # TypeScript SDK
 
-`@pingbridge/client` 是 TypeScript / JavaScript 项目推荐的接入方式。
+`@pingbridge/client` 是 TypeScript / JavaScript App 的推荐接入方式。
 
-它通过 HTTP 调用正在运行的 PingBridge 服务，不会直接调用 Bark、ntfy 或 Telegram。
+SDK 只通过 HTTP 调用 PingBridge 服务，不会直接调用 Bark、ntfy 或 Telegram。第三方 App 的主要职责是保存用户选择的渠道配置，并把这份 portable config 传给 PingBridge。
 
 ## 安装
 
@@ -19,98 +19,110 @@ cd /path/to/PingBridge
 npm run build
 npm pack --workspace @pingbridge/client --pack-destination /tmp
 cd /path/to/your/app
-npm install /tmp/pingbridge-client-0.1.0.tgz
-```
-
-两种方式的 import path 一样：
-
-```ts
-import { PingBridgeClient } from "@pingbridge/client";
+npm install /tmp/pingbridge-client-1.0.0.tgz
 ```
 
 ## 创建 Client
 
 ```ts
+import { PingBridgeClient } from "@pingbridge/client";
+
 const ping = new PingBridgeClient({
   endpoint: "http://127.0.0.1:8787",
   token: process.env.PINGBRIDGE_TOKEN
 });
 ```
 
-Options：
+## Portable User Config
 
-| Option     | 必填 | 含义                                                             |
-| ---------- | ---- | ---------------------------------------------------------------- |
-| `endpoint` | 是   | PingBridge service base URL，会自动移除末尾 slash。              |
-| `token`    | 否   | 与 `server.appToken` 匹配的 bearer token。服务启用 auth 时必填。 |
-| `fetch`    | 否   | 测试或特殊 runtime 使用的自定义 fetch。                          |
-
-## NotifyInput
+这是 App/plugin 集成的推荐契约。
 
 ```ts
-interface NotifyInput {
-  source: string;
-  eventType: string;
-  target: string;
-  title: string;
-  message: string;
-  severity?: "info" | "success" | "warning" | "error";
-  changed?: boolean;
-  dedupeKey?: string;
-  items?: unknown[];
-  metadata?: Record<string, unknown>;
-}
+const config = {
+  app: {
+    id: "obsidian-sync-trakt",
+    name: "Obsidian Sync Trakt",
+    iconUrl: "https://example.com/obsidian-sync-trakt.png",
+    defaultGroup: "personal"
+  },
+  channels: {
+    phone: {
+      type: "bark" as const,
+      endpoint: "https://api.day.app",
+      deviceKey: settings.barkDeviceKey
+    },
+    notes: {
+      type: "ntfy" as const,
+      server: "https://ntfy.sh",
+      topic: settings.ntfyTopic
+    }
+  },
+  groups: {
+    personal: {
+      label: "Obsidian",
+      channels: ["phone", "notes"]
+    }
+  },
+  defaults: {
+    group: "personal",
+    changed: true
+  }
+};
 ```
 
-`source`、`eventType` 和 `dedupeKey` 应使用稳定名称。不要把 access token、password、one-time code 或私人联系方式放进 event payload，因为 events 会写入 SQLite。
+不要把 provider token 放进 `message`、`items`、`metadata`、title 或日志。PingBridge 会使用 portable config 发送，但不会把 Bark device key、Telegram bot token、ntfy token/topic 写入 SQLite event payload。
 
 ## 推荐接入流程
 
 ```ts
 await ping.health();
+await ping.checkConfig(config);
 
-const preview = await ping.preview({
-  source: "my-app",
-  eventType: "task.completed",
-  target: "me",
-  title: "Task completed",
-  message: "This checks routing without sending.",
-  changed: true,
-  dedupeKey: "my-app:task.completed:2026-06-30"
-});
+const input = {
+  config,
+  message: {
+    eventType: "sync.completed",
+    title: "Trakt sync completed",
+    message: "Wrote 3 Daily Notes.",
+    dedupeKey: "obsidian-sync-trakt:daily-notes",
+    presentation: {
+      url: "obsidian://open?vault=Main",
+      tags: ["obsidian", "sync"]
+    }
+  }
+};
+
+const preview = await ping.previewMessage(input);
 
 if (preview.notify) {
-  await ping.notify({
-    source: "my-app",
-    eventType: "task.completed",
-    target: "me",
-    title: "Task completed",
-    message: "This sends a real notification.",
-    changed: true,
-    dedupeKey: "my-app:task.completed:2026-06-30"
-  });
+  await ping.sendMessage(input);
 }
 ```
 
-`preview(...)` 适合设置页里的“Test connection”按钮：它不会写 SQLite，也不会发送 provider notification。
+`checkConfig(...)` 校验用户渠道配置，不发送通知。
 
-`notify(...)` 是真实 event submission。
+`previewMessage(...)` 校验配置和单条消息，不发送通知、不写 SQLite。
+
+`sendMessage(...)` 是真实发送。
 
 ## Methods
 
-| Method                          | 是否发送通知   | 用途                                                    |
-| ------------------------------- | -------------- | ------------------------------------------------------- |
-| `health()`                      | 否             | 检查服务是否可达。                                      |
-| `preview(input)`                | 否             | 检查 payload、auth、target、routing、priority、dedupe。 |
-| `notify(input)`                 | 取决于 routing | 提交真实 event。                                        |
-| `changed(input)`                | 是             | `notify({ ...input, changed: true })` 的快捷方式。      |
-| `failed(input)`                 | 是             | error / failure event 的快捷方式。                      |
-| `authExpired(input)`            | 是             | `eventType: "auth.expired"` 的快捷方式。                |
-| `test(channelId)`               | 是             | 运维者测试单个 channel，不是普通 App 接入测试。         |
-| `listChannels()`                | 否             | 列出 channel id 和 provider type。                      |
-| `recent(limit)`                 | 否             | 读取最近 stored events。                                |
-| `failedDeliveries(limit)`       | 否             | 读取最近 failed deliveries。                            |
-| `getDeliveryStatus(deliveryId)` | 否             | 读取单条 delivery。                                     |
+| Method                          | 是否发送通知   | 用途                                                        |
+| ------------------------------- | -------------- | ----------------------------------------------------------- |
+| `health()`                      | 否             | 检查服务是否可达。                                          |
+| `checkConfig(config)`           | 否             | 校验 portable user provider config 和 provider support。    |
+| `previewMessage(input)`         | 否             | 校验 portable config + message，不发送。                    |
+| `sendMessage(input)`            | 取决于 routing | 用用户渠道配置发送真实消息。                                |
+| `preview(input)`                | 否             | legacy/static target：校验 payload、auth、target、routing。 |
+| `notify(input)`                 | 取决于 routing | legacy/static target：提交真实 event。                      |
+| `changed(input)`                | 是             | `notify({ ...input, changed: true })` 的快捷方式。          |
+| `failed(input)`                 | 是             | error / failure event 的快捷方式。                          |
+| `authExpired(input)`            | 是             | `eventType: "auth.expired"` 的快捷方式。                    |
+| `test(channelId)`               | 是             | 运维者测试单个 YAML channel，不是普通 App 接入测试。        |
+| `listChannels()`                | 否             | 列出 YAML channel id 和 provider type。                     |
+| `recent(limit)`                 | 否             | 读取最近 stored events。                                    |
+| `failedDeliveries(limit)`       | 否             | 读取最近 failed deliveries。                                |
+| `getDeliveryStatus(deliveryId)` | 否             | 读取单条 delivery。                                         |
 
 ## 错误处理
 
@@ -120,14 +132,7 @@ HTTP 失败会抛出 `PingBridgeClientError`：
 import { PingBridgeClientError } from "@pingbridge/client";
 
 try {
-  await ping.preview({
-    source: "my-app",
-    eventType: "task.completed",
-    target: "me",
-    title: "Task completed",
-    message: "Check routing.",
-    changed: true
-  });
+  await ping.checkConfig(config);
 } catch (error) {
   if (error instanceof PingBridgeClientError) {
     console.error(error.status, error.code, error.message);
@@ -137,19 +142,26 @@ try {
 }
 ```
 
-常见 `code` 包括 `unauthorized`、`invalid_json`、`invalid_event`、`unknown_target`、`not_found` 和 `internal_error`。
+常见 `code` 包括 `unauthorized`、`invalid_json`、`invalid_event`、`invalid_config`、`invalid_portable_message`、`unknown_group`、`unknown_target`、`not_found` 和 `internal_error`。
 
 ## App Settings
 
-App / 插件只应暴露 PingBridge service settings：
+App / 插件应暴露 PingBridge 服务设置和用户自己的通知渠道设置，但不要实现 provider HTTP 调用：
 
 ```ts
 interface PingBridgeSettings {
   enabled: boolean;
   endpoint: string;
   appToken: string;
-  target: string;
+  appName: string;
+  appIconUrl?: string;
+  defaultGroup: string;
+  channels: {
+    bark?: { enabled: boolean; endpoint?: string; deviceKey: string };
+    telegram?: { enabled: boolean; botToken: string; chatId: string };
+    ntfy?: { enabled: boolean; server?: string; topic: string; token?: string };
+  };
 }
 ```
 
-Provider 配置属于 PingBridge service，不属于 App。
+这些值只应保存在用户本地设置或 secret store 中，不要提交到仓库、打印到日志或写入 event metadata。
