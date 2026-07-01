@@ -23,6 +23,11 @@ export function createPingBridgeHttpServer(service: PingBridgeService, config: P
         return sendJson(response, 202, await service.notify(body));
       }
 
+      if (request.method === "POST" && url.pathname === "/v1/events/preview") {
+        const body = await readJsonBody(request);
+        return sendJson(response, 200, service.preview(body));
+      }
+
       if (request.method === "GET" && url.pathname === "/v1/events/recent") {
         return sendJson(response, 200, { events: service.listRecentEvents(readLimit(url)) });
       }

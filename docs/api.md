@@ -91,6 +91,38 @@ Event statuses:
 - `ignored`
 - `deduplicated`
 
+## Preview Event
+
+```http
+POST /v1/events/preview
+Content-Type: application/json
+```
+
+Validates the same event payload shape as `POST /v1/events`, evaluates routing, target channels, priority, and dedupe state, but does not write to SQLite and does not send provider notifications.
+
+Use this endpoint from third-party app tests before calling `notify`.
+
+Response:
+
+```json
+{
+  "status": "preview",
+  "notify": true,
+  "target": "me",
+  "priority": "normal",
+  "channels": [
+    {
+      "id": "ntfy_personal",
+      "type": "ntfy"
+    }
+  ],
+  "dedupe": {
+    "key": "obsidian-sync-trakt:2026-06-24:daily-notes",
+    "duplicate": false
+  }
+}
+```
+
 ## Test Channel
 
 ```http

@@ -9,6 +9,7 @@ import type {
   DeliverySummary,
   EventStatus,
   NormalizedEvent,
+  EventPreviewResponse,
   NotifyEventInput,
   NotifyResponse,
   PingBridgeConfig,
@@ -74,6 +75,41 @@ export class PingBridgeService {
     this.store.updateEventStatus(eventId, finalStatus);
 
     return { eventId, status: finalStatus, deliveries };
+  }
+
+  preview(input: unknown): EventPreviewResponse {
+    const event = normalizeEventInput(input);
+    const route = this.resolveRoute(event);
+
+    if (!route.notify) {
+      return {
+        status: "preview",
+        notify: false,
+        target: route.target,
+        priority: route.priority,
+        channels: [],
+        dedupe: {
+          key: event.dedupeKey,
+          duplicate: false
+        }
+      };
+    }
+
+    this.assertTarget(route.target);
+    return {
+      status: "preview",
+      notify: true,
+      target: route.target,
+      priority: route.priority,
+      channels: this.config.targets[route.target].channels.map((channelId) => ({
+        id: channelId,
+        type: this.config.channels[channelId].type
+      })),
+      dedupe: {
+        key: event.dedupeKey,
+        duplicate: event.dedupeKey ? this.isDuplicate(event.dedupeKey) : false
+      }
+    };
   }
 
   async testChannel(channelId: string): Promise<NotifyResponse> {

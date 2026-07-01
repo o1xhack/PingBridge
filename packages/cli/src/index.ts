@@ -30,6 +30,10 @@ export async function runCli(
 
     if (command === "notify") {
       result = await client.notify(readNotifyInput(options));
+    } else if (command === "preview") {
+      result = await client.preview(readNotifyInput(options));
+    } else if (command === "health") {
+      result = await client.health();
     } else if (command === "test-channel") {
       const channelId = readOption(options, "channel") ?? readPositional(rest);
       if (!channelId) throw new Error("test-channel requires --channel <id> or a positional channel id.");
@@ -182,6 +186,8 @@ function helpText(): string {
 
 Usage:
   pingbridge notify --source app --event sync.completed --target me --title "Done" --message "Changed" --changed true
+  pingbridge preview --source app --event sync.completed --target me --title "Done" --message "Changed" --changed true
+  pingbridge health
   pingbridge test-channel --channel telegram_main
   pingbridge recent --limit 20
   pingbridge failed --limit 20

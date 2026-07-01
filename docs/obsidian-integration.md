@@ -27,6 +27,23 @@ const ping = new PingBridgeClient({
 });
 ```
 
+## Connection Test
+
+Use `health` and `preview` from the plugin settings screen before sending real notifications:
+
+```ts
+await ping.health();
+
+await ping.preview({
+  source: "obsidian-sync-trakt",
+  eventType: "sync.completed",
+  target: settings.target,
+  title: "PingBridge preview",
+  message: "This validates routing without sending a notification.",
+  changed: true
+});
+```
+
 ## Sync Completed With Changes
 
 ```ts

@@ -41,6 +41,17 @@ describe("PingBridge HTTP API", () => {
     expect(changed.deliveries[0].status).toBe("delivered");
     expect(sends).toHaveLength(1);
 
+    const preview = await previewEvent(baseUrl, eventPayload({ changed: true, title: "Preview me" }));
+    expect(preview).toMatchObject({
+      status: "preview",
+      notify: true,
+      target: "me",
+      priority: "normal",
+      channels: [{ id: "telegram_main", type: "telegram" }],
+      dedupe: { duplicate: false }
+    });
+    expect(sends).toHaveLength(1);
+
     const unchanged = await postEvent(baseUrl, eventPayload({ changed: false, title: "No changes" }));
     expect(unchanged.status).toBe("ignored");
     expect(unchanged.deliveries).toHaveLength(0);
@@ -173,6 +184,19 @@ async function postEvent(baseUrl: string, payload: Record<string, unknown>): Pro
     body: JSON.stringify(payload)
   });
   expect(response.status).toBe(202);
+  return response.json();
+}
+
+async function previewEvent(baseUrl: string, payload: Record<string, unknown>): Promise<any> {
+  const response = await fetch(`${baseUrl}/v1/events/preview`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+  expect(response.status).toBe(200);
   return response.json();
 }
 

@@ -2,6 +2,8 @@
 
 PingBridge is a self-hosted notification gateway. Apps send standard events to PingBridge; PingBridge handles routing, formatting, dedupe, retry, delivery logs, and provider-specific push APIs.
 
+PingBridge is intended to run as a backend notification service. Third-party apps install the SDK or call the REST API; they do not store Bark, ntfy, or Telegram provider secrets.
+
 The 1.0 MVP supports:
 
 - Telegram Bot
@@ -64,6 +66,54 @@ node packages/cli/dist/index.js notify \
   --message "2 projects changed, 14 commits found." \
   --changed true
 ```
+
+## Third-Party App Integration
+
+The SDK package is ready for npm publishing, but has not been published yet. Until it is published, another local project can install a packed tarball:
+
+```bash
+npm run build
+npm pack --workspace @pingbridge/client --pack-destination /tmp
+```
+
+Then in the app/plugin project:
+
+```bash
+npm install /tmp/pingbridge-client-0.1.0.tgz
+```
+
+Use it from app code:
+
+```ts
+import { PingBridgeClient } from "@pingbridge/client";
+
+const ping = new PingBridgeClient({
+  endpoint: "http://127.0.0.1:8787",
+  token: process.env.PINGBRIDGE_TOKEN
+});
+
+await ping.health();
+
+await ping.preview({
+  source: "my-app",
+  eventType: "task.completed",
+  target: "me",
+  title: "Preview only",
+  message: "This checks routing without sending.",
+  changed: true
+});
+
+await ping.notify({
+  source: "my-app",
+  eventType: "task.completed",
+  target: "me",
+  title: "Task completed",
+  message: "This sends a real notification.",
+  changed: true
+});
+```
+
+See [Integrating Other Projects](docs/integrating-other-projects.md).
 
 ## Configuration Model
 
@@ -135,3 +185,5 @@ npm test
 - [Security](docs/security.md)
 - [Testing](docs/testing.md)
 - [Provider Smoke Setup](docs/provider-smoke-setup.md)
+- [Integrating Other Projects](docs/integrating-other-projects.md)
+- [Product Research Notes](docs/product-research.md)

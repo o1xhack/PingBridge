@@ -30,6 +30,18 @@ export interface NotifyResponse {
   deliveries: DeliverySummary[];
 }
 
+export interface EventPreviewResponse {
+  status: "preview";
+  notify: boolean;
+  target: string;
+  priority: "low" | "normal" | "high";
+  channels: Array<{ id: string; type: "telegram" | "bark" | "ntfy" }>;
+  dedupe: {
+    key?: string;
+    duplicate: boolean;
+  };
+}
+
 export interface PingBridgeClientOptions {
   endpoint: string;
   token?: string;
@@ -46,6 +58,10 @@ export interface FailedDeliveriesResponse {
 
 export interface ChannelsResponse {
   channels: Array<{ id: string; type: "telegram" | "bark" | "ntfy" }>;
+}
+
+export interface HealthResponse {
+  status: "ok";
 }
 
 export class PingBridgeClientError extends Error {
@@ -71,6 +87,17 @@ export class PingBridgeClient {
 
   notify(input: NotifyInput): Promise<NotifyResponse> {
     return this.request<NotifyResponse>("/v1/events", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  }
+
+  health(): Promise<HealthResponse> {
+    return this.request<HealthResponse>("/v1/health", { method: "GET" });
+  }
+
+  preview(input: NotifyInput): Promise<EventPreviewResponse> {
+    return this.request<EventPreviewResponse>("/v1/events/preview", {
       method: "POST",
       body: JSON.stringify(input)
     });

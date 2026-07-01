@@ -118,6 +118,18 @@ export interface NotifyResponse {
   deliveries: DeliverySummary[];
 }
 
+export interface EventPreviewResponse {
+  status: "preview";
+  notify: boolean;
+  target: string;
+  priority: Priority;
+  channels: Array<{ id: string; type: ChannelType }>;
+  dedupe: {
+    key?: string;
+    duplicate: boolean;
+  };
+}
+
 export interface StoredEvent {
   id: string;
   createdAt: string;

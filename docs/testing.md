@@ -19,8 +19,9 @@ This runs:
 7. CLI tests
 8. MCP handler tests
 9. npm package smoke test
-10. Docker smoke test
-11. moderate-or-higher npm audit gate
+10. external consumer smoke test
+11. Docker smoke test
+12. moderate-or-higher npm audit gate
 
 The default gate does not send real Bark, ntfy, or Telegram notifications. Docker smoke is environment-aware and skips safely when Docker is unavailable.
 
@@ -112,7 +113,26 @@ This is the npm-publishing gate. It:
 
 This catches packaging bugs that normal unit tests do not catch, such as missing `dist`, bad `exports`, bad `types`, and bin symlink entrypoint issues.
 
-## 7. Real Provider Smoke Test
+## 7. External Consumer Smoke Test
+
+```bash
+npm run test:external
+```
+
+This creates a temporary outside project, installs the packed `@pingbridge/client` tarball, starts a local PingBridge HTTP server, then calls `health`, `preview`, and `notify` from the outside project.
+
+It verifies the intended Backend Notification as a Service integration path:
+
+- app installs SDK
+- app stores endpoint/token/target
+- app checks service health
+- app previews routing without sending
+- app sends a real event to the service
+- service delivers through its configured provider layer
+
+The provider is fake in this test, so it does not send Bark/ntfy/Telegram notifications.
+
+## 8. Real Provider Smoke Test
 
 ```bash
 PINGBRIDGE_RUN_PROVIDER_SMOKE=1 npm run test:providers
@@ -150,7 +170,7 @@ This test is intentionally not part of `npm run test:all`, because it sends real
 
 See [Provider Smoke Setup](provider-smoke-setup.md) for how to obtain Bark and ntfy test values.
 
-## 8. Docker Smoke Test
+## 9. Docker Smoke Test
 
 ```bash
 npm run test:docker

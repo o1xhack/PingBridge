@@ -29,6 +29,19 @@ describe("PingBridgeClient", () => {
     expect(body.changed).toBe(true);
   });
 
+  it("checks service health", async () => {
+    const fetchImpl = vi.fn(async () => {
+      return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const client = new PingBridgeClient({ endpoint: "http://localhost:8787", fetch: fetchImpl });
+
+    await expect(client.health()).resolves.toEqual({ status: "ok" });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "http://localhost:8787/v1/health",
+      expect.objectContaining({ method: "GET" })
+    );
+  });
+
   it("sets convenience event fields", async () => {
     const bodies: unknown[] = [];
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
@@ -45,6 +58,40 @@ describe("PingBridgeClient", () => {
     });
 
     expect(bodies[0]).toMatchObject({ eventType: "auth.expired", severity: "error", changed: true });
+  });
+
+  it("previews events without sending them", async () => {
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(init?.body as string);
+      expect(body.eventType).toBe("sync.completed");
+      return new Response(
+        JSON.stringify({
+          status: "preview",
+          notify: true,
+          target: "me",
+          priority: "normal",
+          channels: [{ id: "ntfy_personal", type: "ntfy" }],
+          dedupe: { duplicate: false }
+        }),
+        { status: 200 }
+      );
+    }) as unknown as typeof fetch;
+    const client = new PingBridgeClient({ endpoint: "http://localhost:8787", token: "token", fetch: fetchImpl });
+
+    const preview = await client.preview({
+      source: "app",
+      eventType: "sync.completed",
+      target: "me",
+      title: "Done",
+      message: "Changed",
+      changed: true
+    });
+
+    expect(preview.notify).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "http://localhost:8787/v1/events/preview",
+      expect.objectContaining({ method: "POST" })
+    );
   });
 
   it("throws structured errors", async () => {

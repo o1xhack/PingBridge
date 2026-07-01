@@ -54,6 +54,71 @@ describe("CLI", () => {
     expect(code).toBe(1);
     expect(stderr.text()).toContain("Missing required option --event.");
   });
+
+  it("previews events without sending them", async () => {
+    const stdout = createWriter();
+    const stderr = createWriter();
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      expect(_url.toString()).toBe("http://localhost:8787/v1/events/preview");
+      expect(JSON.parse(init?.body as string).source).toBe("app");
+      return new Response(
+        JSON.stringify({
+          status: "preview",
+          notify: true,
+          target: "me",
+          priority: "normal",
+          channels: [{ id: "ntfy_personal", type: "ntfy" }],
+          dedupe: { duplicate: false }
+        }),
+        { status: 200 }
+      );
+    }) as unknown as typeof fetch;
+
+    const code = await runCli(
+      [
+        "preview",
+        "--source",
+        "app",
+        "--event",
+        "sync.completed",
+        "--target",
+        "me",
+        "--title",
+        "Done",
+        "--message",
+        "Changed",
+        "--changed",
+        "true"
+      ],
+      { PINGBRIDGE_ENDPOINT: "http://localhost:8787", PINGBRIDGE_TOKEN: "token" },
+      { stdout, stderr },
+      fetchImpl
+    );
+
+    expect(code).toBe(0);
+    expect(stderr.text()).toBe("");
+    expect(JSON.parse(stdout.text()).status).toBe("preview");
+  });
+
+  it("checks service health", async () => {
+    const stdout = createWriter();
+    const stderr = createWriter();
+    const fetchImpl = vi.fn(async (_url: string | URL | Request) => {
+      expect(_url.toString()).toBe("http://localhost:8787/v1/health");
+      return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const code = await runCli(
+      ["health"],
+      { PINGBRIDGE_ENDPOINT: "http://localhost:8787" },
+      { stdout, stderr },
+      fetchImpl
+    );
+
+    expect(code).toBe(0);
+    expect(stderr.text()).toBe("");
+    expect(JSON.parse(stdout.text())).toEqual({ status: "ok" });
+  });
 });
 
 function createWriter(): Pick<NodeJS.WriteStream, "write"> & { text(): string } {
