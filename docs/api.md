@@ -2,7 +2,7 @@
 
 PingBridge exposes a small REST API for apps, plugins, CLIs, and agents.
 
-Use the REST API directly when a project is not TypeScript or cannot use `@pingbridge/client`.
+Use the REST API directly when a project is not TypeScript or cannot use `@o1x/pingbridge-client`.
 
 ## Endpoint Index
 

@@ -1,8 +1,8 @@
 # MCP
 
-`@pingbridge/mcp-server` は MCP stdio server を公開し、Codex / Claude-style agents が PingBridge 経由で通知を送れるようにします。
+`@o1x/pingbridge-mcp-server` は MCP stdio server を公開し、Codex / Claude-style agents が PingBridge 経由で通知を送れるようにします。
 
-MCP server は現在 service-managed event flow を使います。PingBridge YAML に channels/targets が定義済みの trusted automation 向けです。App/plugin integration では `@pingbridge/client` の portable config methods を使ってください。
+MCP server は現在 service-managed event flow を使います。PingBridge YAML に channels/targets が定義済みの trusted automation 向けです。App/plugin integration では `@o1x/pingbridge-client` の portable config methods を使ってください。
 
 ## 起動
 

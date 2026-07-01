@@ -52,7 +52,7 @@ try {
   run("mkdir", ["-p", tarballDir]);
   const tarballName = execFileSync(
     "npm",
-    ["pack", "--workspace", "@pingbridge/client", "--pack-destination", tarballDir],
+    ["pack", "--workspace", "@o1x/pingbridge-client", "--pack-destination", tarballDir],
     {
       cwd: root,
       encoding: "utf8",
@@ -76,7 +76,7 @@ try {
     join(tempDir, "consumer.mjs"),
     `
 import assert from "node:assert/strict";
-import { PingBridgeClient } from "@pingbridge/client";
+import { PingBridgeClient } from "@o1x/pingbridge-client";
 
 const client = new PingBridgeClient({
   endpoint: process.env.PINGBRIDGE_ENDPOINT,

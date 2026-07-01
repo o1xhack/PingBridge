@@ -27,7 +27,7 @@ Store these values only in the user's local plugin settings or secret store. Do 
 ## Client Setup
 
 ```ts
-import { PingBridgeClient, type PortableNotificationConfig } from "@pingbridge/client";
+import { PingBridgeClient, type PortableNotificationConfig } from "@o1x/pingbridge-client";
 
 const ping = new PingBridgeClient({
   endpoint: settings.endpoint,

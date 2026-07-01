@@ -1,6 +1,6 @@
 # TypeScript SDK
 
-`@pingbridge/client` は TypeScript / JavaScript アプリ向けの推奨連携方法です。
+`@o1x/pingbridge-client` は TypeScript / JavaScript アプリ向けの推奨連携方法です。
 
 SDK は HTTP 経由で PingBridge service を呼び出します。Bark、ntfy、Telegram を直接呼び出しません。アプリ側はユーザーが選んだ channel config を保存し、それを portable config として PingBridge に渡します。
 
@@ -9,7 +9,7 @@ SDK は HTTP 経由で PingBridge service を呼び出します。Bark、ntfy、
 npm publish 後：
 
 ```bash
-npm install @pingbridge/client
+npm install @o1x/pingbridge-client
 ```
 
 npm publish 前は repository の packed tarball を使います。
@@ -17,15 +17,15 @@ npm publish 前は repository の packed tarball を使います。
 ```bash
 cd /path/to/PingBridge
 npm run build
-npm pack --workspace @pingbridge/client --pack-destination /tmp
+npm pack --workspace @o1x/pingbridge-client --pack-destination /tmp
 cd /path/to/your/app
-npm install /tmp/pingbridge-client-1.0.0.tgz
+npm install /tmp/o1x-pingbridge-client-1.0.0.tgz
 ```
 
 ## Client 作成
 
 ```ts
-import { PingBridgeClient } from "@pingbridge/client";
+import { PingBridgeClient } from "@o1x/pingbridge-client";
 
 const ping = new PingBridgeClient({
   endpoint: "http://127.0.0.1:8787",
@@ -129,7 +129,7 @@ if (preview.notify) {
 HTTP 失敗時は `PingBridgeClientError` が throw されます。
 
 ```ts
-import { PingBridgeClientError } from "@pingbridge/client";
+import { PingBridgeClientError } from "@o1x/pingbridge-client";
 
 try {
   await ping.checkConfig(config);

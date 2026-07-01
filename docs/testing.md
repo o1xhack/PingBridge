@@ -115,7 +115,7 @@ This is the npm-publishing gate. It:
 2. builds all workspaces
 3. runs `npm pack` for each package
 4. installs the tarballs into a temporary consumer project
-5. imports `@pingbridge/client`, `@pingbridge/server`, and `@pingbridge/cli`
+5. imports `@o1x/pingbridge-client`, `@o1x/pingbridge-server`, and `@o1x/pingbridge-cli`
 6. runs the installed `pingbridge` bin
 7. starts the installed `pingbridge-mcp` stdio server and checks its tool list
 
@@ -127,7 +127,7 @@ This catches packaging bugs that normal unit tests do not catch, such as missing
 npm run test:external
 ```
 
-This creates a temporary outside project, installs the packed `@pingbridge/client` tarball, starts a local PingBridge HTTP server, then calls `health`, `checkConfig`, `previewMessage`, and `sendMessage` from the outside project.
+This creates a temporary outside project, installs the packed `@o1x/pingbridge-client` tarball, starts a local PingBridge HTTP server, then calls `health`, `checkConfig`, `previewMessage`, and `sendMessage` from the outside project.
 
 It verifies the intended Backend Notification as a Service integration path:
 

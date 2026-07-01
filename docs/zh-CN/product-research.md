@@ -28,7 +28,7 @@ PingBridge 应该作为给开发者 App/plugin 使用的 Backend Notification as
 
 必要流程是：
 
-1. App developer 安装 `@pingbridge/client` 或调用 REST。
+1. App developer 安装 `@o1x/pingbridge-client` 或调用 REST。
 2. App 暴露 PingBridge endpoint/token 和用户通知渠道 settings。
 3. 用户选择 Bark、Telegram、ntfy 或多个渠道，并填入自己的 provider values。
 4. App 把 portable config 传给 PingBridge。

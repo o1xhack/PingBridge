@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { PingBridgeClient, PingBridgeClientError, type NotifyInput } from "@pingbridge/client";
+import { PingBridgeClient, PingBridgeClientError, type NotifyInput } from "@o1x/pingbridge-client";
 
 interface CliIo {
   stdout: Pick<NodeJS.WriteStream, "write">;

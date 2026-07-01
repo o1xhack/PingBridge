@@ -1,11 +1,11 @@
 {
-  "name": "@pingbridge/mcp-server",
+  "name": "@o1x/pingbridge-mcp-server",
   "version": "1.0.0",
   "type": "module",
   "description": "MCP server exposing PingBridge notification tools.",
   "license": "MIT",
   "bin": {
-    "pingbridge-mcp": "./dist/index.js"
+    "pingbridge-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.15.0",
-    "@pingbridge/client": "1.0.0",
+    "@o1x/pingbridge-client": "1.0.0",
     "zod": "^3.25.0"
   }
 }

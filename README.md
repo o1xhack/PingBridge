@@ -19,7 +19,7 @@ English is the default documentation language.
 | App/plugin developer   | [Integrating Other Projects](docs/integrating-other-projects.md)        | Add PingBridge notifications to another project.                                  |
 | Agent/Codex automation | [Agent Guide](docs/agent-guide.md)                                      | Make safe repo changes without leaking secrets or sending surprise notifications. |
 | API user               | [REST API](docs/api.md)                                                 | Call PingBridge from any language.                                                |
-| TypeScript user        | [TypeScript SDK](docs/sdk.md)                                           | Use `@pingbridge/client` from app code.                                           |
+| TypeScript user        | [TypeScript SDK](docs/sdk.md)                                           | Use `@o1x/pingbridge-client` from app code.                                       |
 | Service operator       | [Configuration](docs/configuration.md) and [Security](docs/security.md) | Run PingBridge and configure providers.                                           |
 | Contributor            | [Testing](docs/testing.md)                                              | Validate changes before release.                                                  |
 
@@ -104,19 +104,19 @@ The SDK package is ready for npm publishing, but has not been published yet. Unt
 
 ```bash
 npm run build
-npm pack --workspace @pingbridge/client --pack-destination /tmp
+npm pack --workspace @o1x/pingbridge-client --pack-destination /tmp
 ```
 
 Then in the app/plugin project:
 
 ```bash
-npm install /tmp/pingbridge-client-1.0.0.tgz
+npm install /tmp/o1x-pingbridge-client-1.0.0.tgz
 ```
 
 Use it from app code:
 
 ```ts
-import { PingBridgeClient } from "@pingbridge/client";
+import { PingBridgeClient } from "@o1x/pingbridge-client";
 
 const ping = new PingBridgeClient({
   endpoint: "http://127.0.0.1:8787",

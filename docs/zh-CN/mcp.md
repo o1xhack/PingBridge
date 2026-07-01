@@ -1,8 +1,8 @@
 # MCP
 
-`@pingbridge/mcp-server` 暴露 MCP stdio server，让 Codex / Claude-style agents 可以通过 PingBridge 发送通知。
+`@o1x/pingbridge-mcp-server` 暴露 MCP stdio server，让 Codex / Claude-style agents 可以通过 PingBridge 发送通知。
 
-MCP server 当前使用 service-managed event flow，适合 PingBridge YAML 已经定义 channels/targets 的可信自动化。App/plugin 接入应使用 `@pingbridge/client` 的 portable config methods。
+MCP server 当前使用 service-managed event flow，适合 PingBridge YAML 已经定义 channels/targets 的可信自动化。App/plugin 接入应使用 `@o1x/pingbridge-client` 的 portable config methods。
 
 ## 启动
 

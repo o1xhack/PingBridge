@@ -3,7 +3,7 @@
 This example shows the intended integration style for an Obsidian plugin. The plugin sends standard PingBridge events and does not know about Telegram, Bark, or ntfy credentials.
 
 ```ts
-import { PingBridgeClient } from "@pingbridge/client";
+import { PingBridgeClient } from "@o1x/pingbridge-client";
 
 interface PingBridgeSettings {
   enabled: boolean;

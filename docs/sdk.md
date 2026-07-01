@@ -1,6 +1,6 @@
 # TypeScript SDK
 
-The `@pingbridge/client` package is the recommended integration path for TypeScript and JavaScript apps.
+The `@o1x/pingbridge-client` package is the recommended integration path for TypeScript and JavaScript apps.
 
 It talks to a running PingBridge service over HTTP. It does not send Bark, ntfy, or Telegram notifications directly.
 
@@ -15,7 +15,7 @@ Use the standard event flow only when the PingBridge service operator already ma
 After npm publishing:
 
 ```bash
-npm install @pingbridge/client
+npm install @o1x/pingbridge-client
 ```
 
 Before npm publishing, install the packed tarball from this repository:
@@ -23,15 +23,15 @@ Before npm publishing, install the packed tarball from this repository:
 ```bash
 cd /path/to/PingBridge
 npm run build
-npm pack --workspace @pingbridge/client --pack-destination /tmp
+npm pack --workspace @o1x/pingbridge-client --pack-destination /tmp
 cd /path/to/your/app
-npm install /tmp/pingbridge-client-1.0.0.tgz
+npm install /tmp/o1x-pingbridge-client-1.0.0.tgz
 ```
 
 The import path is the same in both cases:
 
 ```ts
-import { PingBridgeClient } from "@pingbridge/client";
+import { PingBridgeClient } from "@o1x/pingbridge-client";
 ```
 
 ## Create A Client
@@ -298,7 +298,7 @@ interface PortableConfigHealthResponse {
 Failed HTTP responses throw `PingBridgeClientError`:
 
 ```ts
-import { PingBridgeClientError } from "@pingbridge/client";
+import { PingBridgeClientError } from "@o1x/pingbridge-client";
 
 try {
   await ping.preview({

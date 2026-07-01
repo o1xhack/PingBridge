@@ -87,7 +87,7 @@ npm publishing gate です。clean/build、各 workspace の `npm pack`、一時
 npm run test:external
 ```
 
-一時的な外部プロジェクトを作成し、packed `@pingbridge/client` tarball をインストールし、ローカル PingBridge HTTP server を起動して `health`、`checkConfig`、`previewMessage`、`sendMessage` を呼び出します。
+一時的な外部プロジェクトを作成し、packed `@o1x/pingbridge-client` tarball をインストールし、ローカル PingBridge HTTP server を起動して `health`、`checkConfig`、`previewMessage`、`sendMessage` を呼び出します。
 
 この test は Backend Notification as a Service integration path を検証します。
 

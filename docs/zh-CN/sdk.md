@@ -1,6 +1,6 @@
 # TypeScript SDK
 
-`@pingbridge/client` 是 TypeScript / JavaScript App 的推荐接入方式。
+`@o1x/pingbridge-client` 是 TypeScript / JavaScript App 的推荐接入方式。
 
 SDK 只通过 HTTP 调用 PingBridge 服务，不会直接调用 Bark、ntfy 或 Telegram。第三方 App 的主要职责是保存用户选择的渠道配置，并把这份 portable config 传给 PingBridge。
 
@@ -9,7 +9,7 @@ SDK 只通过 HTTP 调用 PingBridge 服务，不会直接调用 Bark、ntfy 或
 npm 发布后：
 
 ```bash
-npm install @pingbridge/client
+npm install @o1x/pingbridge-client
 ```
 
 npm 发布前，可以从本仓库安装 packed tarball：
@@ -17,15 +17,15 @@ npm 发布前，可以从本仓库安装 packed tarball：
 ```bash
 cd /path/to/PingBridge
 npm run build
-npm pack --workspace @pingbridge/client --pack-destination /tmp
+npm pack --workspace @o1x/pingbridge-client --pack-destination /tmp
 cd /path/to/your/app
-npm install /tmp/pingbridge-client-1.0.0.tgz
+npm install /tmp/o1x-pingbridge-client-1.0.0.tgz
 ```
 
 ## 创建 Client
 
 ```ts
-import { PingBridgeClient } from "@pingbridge/client";
+import { PingBridgeClient } from "@o1x/pingbridge-client";
 
 const ping = new PingBridgeClient({
   endpoint: "http://127.0.0.1:8787",
@@ -129,7 +129,7 @@ if (preview.notify) {
 HTTP 失败会抛出 `PingBridgeClientError`：
 
 ```ts
-import { PingBridgeClientError } from "@pingbridge/client";
+import { PingBridgeClientError } from "@o1x/pingbridge-client";
 
 try {
   await ping.checkConfig(config);

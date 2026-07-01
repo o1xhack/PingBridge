@@ -24,7 +24,7 @@ The client package is ready to publish, but it has not been published to npm yet
 Once published:
 
 ```bash
-npm install @pingbridge/client
+npm install @o1x/pingbridge-client
 ```
 
 Before npm publish, use a local tarball from this repository:
@@ -32,19 +32,19 @@ Before npm publish, use a local tarball from this repository:
 ```bash
 cd /path/to/PingBridge
 npm run build
-npm pack --workspace @pingbridge/client --pack-destination /tmp
+npm pack --workspace @o1x/pingbridge-client --pack-destination /tmp
 ```
 
 Then in another project:
 
 ```bash
-npm install /tmp/pingbridge-client-1.0.0.tgz
+npm install /tmp/o1x-pingbridge-client-1.0.0.tgz
 ```
 
 The import path is the same either way:
 
 ```ts
-import { PingBridgeClient } from "@pingbridge/client";
+import { PingBridgeClient } from "@o1x/pingbridge-client";
 ```
 
 ## App Settings
@@ -87,7 +87,7 @@ Keep provider values in the user's local settings or secret store. Do not commit
 Convert the app settings into a PingBridge portable config:
 
 ```ts
-import type { PortableNotificationConfig } from "@pingbridge/client";
+import type { PortableNotificationConfig } from "@o1x/pingbridge-client";
 
 function buildPingBridgeConfig(settings: PingBridgeSettings): PortableNotificationConfig {
   const channels: PortableNotificationConfig["channels"] = {};
@@ -236,7 +236,7 @@ await ping.sendMessage({
 This pattern keeps app code small and testable:
 
 ```ts
-import { PingBridgeClient, PingBridgeClientError, type PortableNotificationConfig } from "@pingbridge/client";
+import { PingBridgeClient, PingBridgeClientError, type PortableNotificationConfig } from "@o1x/pingbridge-client";
 
 export async function sendPingBridgeMessage(
   settings: PingBridgeSettings,
@@ -287,6 +287,6 @@ PingBridge includes a quiet external consumer test:
 npm run test:external
 ```
 
-This test creates a temporary outside project, installs the packed `@pingbridge/client` tarball, starts a local PingBridge HTTP server with fake provider delivery, calls `health`, `checkConfig`, `previewMessage`, and `sendMessage`, and verifies that preview does not send while send does.
+This test creates a temporary outside project, installs the packed `@o1x/pingbridge-client` tarball, starts a local PingBridge HTTP server with fake provider delivery, calls `health`, `checkConfig`, `previewMessage`, and `sendMessage`, and verifies that preview does not send while send does.
 
 It proves the SDK can be installed and used by another project without relying on workspace imports or app-side provider adapters.

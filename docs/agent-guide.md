@@ -11,7 +11,7 @@ Third-party apps pass portable user notification config and messages to PingBrid
 The standard integration flow is:
 
 ```text
-app/plugin settings -> portable config -> @pingbridge/client or REST API -> PingBridge service -> Telegram/Bark/ntfy
+app/plugin settings -> portable config -> @o1x/pingbridge-client or REST API -> PingBridge service -> Telegram/Bark/ntfy
 ```
 
 Third-party apps should store only:

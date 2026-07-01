@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PingBridgeClient } from "@pingbridge/client";
+import type { PingBridgeClient } from "@o1x/pingbridge-client";
 import { createToolHandlers, toolResult } from "../tools.js";
 
 describe("MCP tool handlers", () => {

@@ -11,7 +11,7 @@ PingBridge 是 Backend Notification as a Service，不是本地发送工具。
 标准链路：
 
 ```text
-app/plugin settings -> portable config -> @pingbridge/client 或 REST API -> PingBridge service -> Telegram/Bark/ntfy
+app/plugin settings -> portable config -> @o1x/pingbridge-client 或 REST API -> PingBridge service -> Telegram/Bark/ntfy
 ```
 
 第三方 App 只保存：

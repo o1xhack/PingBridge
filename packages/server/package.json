@@ -1,5 +1,5 @@
 {
-  "name": "@pingbridge/server",
+  "name": "@o1x/pingbridge-server",
   "version": "1.0.0",
   "type": "module",
   "description": "PingBridge REST API server and delivery engine.",

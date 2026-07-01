@@ -12,7 +12,12 @@ try {
   run("npm", ["run", "build"], { cwd: root });
   run("mkdir", ["-p", tarballDir]);
 
-  const packages = ["@pingbridge/server", "@pingbridge/client", "@pingbridge/cli", "@pingbridge/mcp-server"];
+  const packages = [
+    "@o1x/pingbridge-server",
+    "@o1x/pingbridge-client",
+    "@o1x/pingbridge-cli",
+    "@o1x/pingbridge-mcp-server"
+  ];
   const tarballs = packages.map((workspace) => {
     const output = execFileSync("npm", ["pack", "--workspace", workspace, "--pack-destination", tarballDir], {
       cwd: root,
@@ -33,9 +38,9 @@ try {
     join(tempDir, "import-smoke.mjs"),
     `
 import assert from "node:assert/strict";
-import { PingBridgeClient } from "@pingbridge/client";
-import { createPingBridgeRuntime } from "@pingbridge/server";
-import { runCli } from "@pingbridge/cli";
+import { PingBridgeClient } from "@o1x/pingbridge-client";
+import { createPingBridgeRuntime } from "@o1x/pingbridge-server";
+import { runCli } from "@o1x/pingbridge-cli";
 
 assert.equal(typeof PingBridgeClient, "function");
 assert.equal(typeof createPingBridgeRuntime, "function");

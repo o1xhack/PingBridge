@@ -28,7 +28,7 @@ PingBridge should be treated as a Backend Notification as a Service for develope
 
 The required app/plugin flow is:
 
-1. App developer installs `@pingbridge/client` or calls REST.
+1. App developer installs `@o1x/pingbridge-client` or calls REST.
 2. The app exposes settings for PingBridge endpoint/token and user notification channels.
 3. The user selects Bark, Telegram, ntfy, or multiple channels and supplies their own provider values.
 4. The app sends portable config to PingBridge.
@@ -46,7 +46,7 @@ This is why the SDK now exposes:
 
 And why the repository includes:
 
-- publishable package metadata for `@pingbridge/client`
+- publishable package metadata for `@o1x/pingbridge-client`
 - portable config HTTP integration tests
 - provider formatting unit tests for app name, icon, group, URL, tags, and priority
 - package smoke tests

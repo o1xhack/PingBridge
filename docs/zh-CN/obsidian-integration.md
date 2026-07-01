@@ -27,7 +27,7 @@ interface PingBridgeSettings {
 ## Client
 
 ```ts
-import { PingBridgeClient, type PortableNotificationConfig } from "@pingbridge/client";
+import { PingBridgeClient, type PortableNotificationConfig } from "@o1x/pingbridge-client";
 
 const ping = new PingBridgeClient({
   endpoint: settings.endpoint,

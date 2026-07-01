@@ -14,7 +14,7 @@ Localized documentation is available for:
 | App/plugin developer   | [Integrating Other Projects](integrating-other-projects.md)                 | Add PingBridge notifications to another project.                                  |
 | Agent/Codex automation | [Agent Guide](agent-guide.md)                                               | Make safe repo changes without leaking secrets or sending surprise notifications. |
 | REST API user          | [REST API](api.md)                                                          | Call PingBridge from any language.                                                |
-| TypeScript user        | [TypeScript SDK](sdk.md)                                                    | Use `@pingbridge/client` from app code.                                           |
+| TypeScript user        | [TypeScript SDK](sdk.md)                                                    | Use `@o1x/pingbridge-client` from app code.                                       |
 | Service operator       | [Configuration](configuration.md) and [Security](security.md)               | Run PingBridge and configure providers.                                           |
 | Contributor            | [Testing](testing.md)                                                       | Validate changes before release.                                                  |
 | Provider tester        | [Provider Smoke Setup](provider-smoke-setup.md)                             | Configure real Bark, ntfy, or Telegram smoke tests locally.                       |

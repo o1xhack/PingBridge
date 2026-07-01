@@ -1,5 +1,5 @@
-import type { PingBridgeClient } from "@pingbridge/client";
-import type { NotifyInput } from "@pingbridge/client";
+import type { PingBridgeClient } from "@o1x/pingbridge-client";
+import type { NotifyInput } from "@o1x/pingbridge-client";
 
 export interface PingBridgeToolHandlers {
   send_notification(input: NotifyInput): Promise<unknown>;

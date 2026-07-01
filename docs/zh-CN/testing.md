@@ -87,7 +87,7 @@ npm run test:package
 npm run test:external
 ```
 
-它会创建临时外部项目，安装 packed `@pingbridge/client` tarball，启动本地 PingBridge HTTP server，然后从外部项目调用 `health`、`checkConfig`、`previewMessage`、`sendMessage`。
+它会创建临时外部项目，安装 packed `@o1x/pingbridge-client` tarball，启动本地 PingBridge HTTP server，然后从外部项目调用 `health`、`checkConfig`、`previewMessage`、`sendMessage`。
 
 该测试验证目标 Backend Notification as a Service 接入路径：
 

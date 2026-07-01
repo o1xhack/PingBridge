@@ -28,7 +28,7 @@ PingBridge は developer-owned apps/plugins 向け Backend Notification as a Ser
 
 required flow:
 
-1. App developer が `@pingbridge/client` または REST を使う。
+1. App developer が `@o1x/pingbridge-client` または REST を使う。
 2. App が PingBridge endpoint/token と user notification channel settings を公開する。
 3. user が Bark、Telegram、ntfy、または複数 channel を選び、自分の provider values を入力する。
 4. App が portable config を PingBridge に渡す。
