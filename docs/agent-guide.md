@@ -1,0 +1,102 @@
+# Agent Guide
+
+This guide is for coding agents and automation agents that need to understand or modify PingBridge safely.
+
+## Product Contract
+
+PingBridge is a backend notification service. It is not a local-only sender.
+
+Third-party apps send standard events to PingBridge. PingBridge owns provider secrets, routing, dedupe, retries, delivery logs, and provider-specific HTTP APIs.
+
+The standard integration flow is:
+
+```text
+app/plugin -> @pingbridge/client or REST API -> PingBridge service -> Telegram/Bark/ntfy
+```
+
+Third-party apps should store only:
+
+```text
+endpoint
+appToken
+target
+```
+
+They should not store:
+
+```text
+Telegram bot token
+Bark device key
+ntfy topic/token
+PingBridge SQLite data
+provider smoke credentials
+```
+
+## Documentation Map
+
+Read these files before making behavior or documentation changes:
+
+| Task                        | Required Docs                                                               |
+| --------------------------- | --------------------------------------------------------------------------- |
+| Add another app integration | `docs/integrating-other-projects.md`, `docs/sdk.md`, `docs/api.md`          |
+| Change REST behavior        | `docs/api.md`, `docs/sdk.md`, `docs/testing.md`                             |
+| Change SDK behavior         | `docs/sdk.md`, `docs/integrating-other-projects.md`, client tests           |
+| Change providers or secrets | `docs/configuration.md`, `docs/security.md`, `docs/provider-smoke-setup.md` |
+| Change release gate         | `docs/testing.md`                                                           |
+| Change architecture         | `docs/architecture.md`                                                      |
+
+## Safe Test Rules
+
+Use this gate for normal changes:
+
+```bash
+npm run test:all
+```
+
+This is the default quiet gate. It must not send real Bark, ntfy, or Telegram notifications.
+
+Use this only when explicitly checking real provider delivery:
+
+```bash
+npm run test:all:real
+```
+
+Real provider values live in local `.env`. Do not print them in logs, commit them, or copy them into public docs.
+
+## Integration Test Order
+
+When adding PingBridge to another project, use this order:
+
+1. `health()` checks service reachability.
+2. `preview(...)` checks payload, auth, target, routing, priority, and dedupe without sending.
+3. `notify(...)` sends a real notification.
+
+Do not use `notify(...)` as the first connection test. That creates noisy real pushes and makes failure diagnosis worse.
+
+## Agent Checklist
+
+Before changing code:
+
+- Confirm whether the change affects server API, SDK API, CLI, MCP, docs, or provider behavior.
+- Update every affected doc. For example, a new SDK method usually affects `docs/sdk.md`, `docs/api.md`, `docs/integrating-other-projects.md`, and tests.
+- Keep examples copy-pasteable with placeholder secrets only.
+- Keep `preview` documented as non-sending.
+- Keep default tests quiet.
+
+Before committing:
+
+```bash
+npm run format:write
+npm run test:all
+git status --short
+```
+
+Before publishing packages:
+
+```bash
+npm run test:package
+npm run test:external
+npm whoami
+```
+
+If `npm whoami` fails with `ENEEDAUTH`, package publishing is blocked until npm authentication is configured.

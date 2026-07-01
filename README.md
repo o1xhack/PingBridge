@@ -4,6 +4,17 @@ PingBridge is a self-hosted notification gateway. Apps send standard events to P
 
 PingBridge is intended to run as a backend notification service. Third-party apps install the SDK or call the REST API; they do not store Bark, ntfy, or Telegram provider secrets.
 
+## Read This First
+
+| Reader                 | Start Here                                                              | Goal                                                                              |
+| ---------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| App/plugin developer   | [Integrating Other Projects](docs/integrating-other-projects.md)        | Add PingBridge notifications to another project.                                  |
+| Agent/Codex automation | [Agent Guide](docs/agent-guide.md)                                      | Make safe repo changes without leaking secrets or sending surprise notifications. |
+| API user               | [REST API](docs/api.md)                                                 | Call PingBridge from any language.                                                |
+| TypeScript user        | [TypeScript SDK](docs/sdk.md)                                           | Use `@pingbridge/client` from app code.                                           |
+| Service operator       | [Configuration](docs/configuration.md) and [Security](docs/security.md) | Run PingBridge and configure providers.                                           |
+| Contributor            | [Testing](docs/testing.md)                                              | Validate changes before release.                                                  |
+
 The 1.0 MVP supports:
 
 - Telegram Bot
@@ -18,6 +29,14 @@ The 1.0 MVP supports:
 - Basic retry and dedupe
 
 PingBridge is not a full BaaS, hosted notification cloud, workflow engine, Web UI, or multi-user product.
+
+## Core Flow
+
+1. A PingBridge service operator configures provider secrets once on the server.
+2. An app or plugin stores only `endpoint`, `appToken`, and `target`.
+3. The app calls `health()` to check connectivity.
+4. The app calls `preview(...)` to verify auth, target, routing, priority, and dedupe without sending a notification.
+5. The app calls `notify(...)` when it wants PingBridge to deliver a real notification.
 
 ## Quick Start
 
@@ -172,13 +191,21 @@ packages/mcp-server  MCP tools for Codex/Claude-style automation
 npm run dev:server
 npm run build
 npm run typecheck
+npm run lint
+npm run test:all
+npm run test:external
+npm run test:all:real
 npm test
 ```
 
+`npm run test:all` is the normal quiet gate and does not send Bark, ntfy, or Telegram notifications. `npm run test:all:real` includes real provider smoke tests when local `.env` credentials are present.
+
 ## Docs
 
+- [Agent Guide](docs/agent-guide.md)
 - [Architecture](docs/architecture.md)
 - [REST API](docs/api.md)
+- [TypeScript SDK](docs/sdk.md)
 - [Configuration](docs/configuration.md)
 - [Obsidian Integration](docs/obsidian-integration.md)
 - [MCP](docs/mcp.md)
